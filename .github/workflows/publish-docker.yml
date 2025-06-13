@@ -1,0 +1,31 @@
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      commit:
+        required: true
+        type: string
+
+jobs:
+  publish-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download
+        uses: actions/download-artifact@v4
+        with:
+          name: docker
+
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          username: buildcharts
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Docker push
+        run: |
+          docker load -i buildcharts-${{ inputs.version }}-${{ inputs.commit }}.tar
+          docker tag buildcharts/buildcharts:${{ inputs.version }}-${{ inputs.commit }} buildcharts/buildcharts:latest
+          docker push buildcharts/buildcharts:${{ inputs.version }}-${{ inputs.commit }}
+          docker push buildcharts/buildcharts:latest

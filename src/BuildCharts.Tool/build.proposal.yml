@@ -1,0 +1,38 @@
+version: latest
+
+environment:
+  - VERSION
+  - COMMIT
+  - IMAGE=mcr.microsoft.com/dotnet/aspnet:9.0
+
+targets:
+  build:
+    - krp.sln:
+      with:
+        base: mcr.microsoft.com/dotnet/sdk:9.0
+
+  nuget:
+    - src/dotnet-krp/dotnet-krp.csproj
+    - src/Krp/Krp.csproj
+
+  docker:
+    - src/Krp/Krp.csproj:
+      with:
+        image: ${IMAGE}
+        tags: ["krp:${VERSION}.${COMMIT}"]
+    - src/Krp/BackgroundWorker.csproj:
+      with:
+        base: ${IMAGE}
+        tags: ["krp-bw:${VERSION}.${COMMIT}"]
+    - src/Krp/ImportBackgroundWorker.csproj:
+      with:
+        base: ${IMAGE}
+        tags: ["krp-import-bw:${VERSION}.${COMMIT}"]
+
+  test:
+    - test/Krp.Tests/Krp.Tests.csproj
+    - test/Krp.Tests1/Krp.Tests1.csproj
+    - test/Krp.Tests1/Krp.Tests1.csproj
+    - test/Krp.Tests/Krp.Tests.csproj
+    - test/Krp.Tests1/Krp.Tests1.csproj
+    - test/Krp.Tests1/Krp.Tests1.csproj

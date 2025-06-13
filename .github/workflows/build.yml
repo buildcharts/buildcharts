@@ -1,0 +1,60 @@
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      commit:
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up BuildCharts
+        uses: buildcharts/setup-action@v1
+        
+      - name: Generate BuildCharts
+        uses: buildcharts/generate-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker build and test
+        uses: docker/bake-action@v6
+        with:
+          source: .
+          files: buildcharts.hcl
+          set: |
+            base.cache-from=type=gha,scope=buildcharts
+            build.cache-to=type=gha,scope=buildcharts,mode=max
+        env:
+          VERSION: ${{ inputs.version }}
+          COMMIT:  ${{ inputs.commit }}
+
+      - name: Save Docker image
+        run: |
+          docker save buildcharts/buildcharts:${{ inputs.version }}-${{ inputs.commit }} -o buildcharts-${{ inputs.version }}-${{ inputs.commit }}.tar
+
+      - name: Upload nuget
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget
+          path: .buildcharts/output/nuget
+
+      - name: Upload docker
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker
+          path: buildcharts-${{ inputs.version }}-${{ inputs.commit }}.tar
