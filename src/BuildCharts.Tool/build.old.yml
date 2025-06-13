@@ -1,0 +1,63 @@
+image: mcr.microsoft.com/dotnet/sdk:9.0
+channel: release
+
+# parameters:
+#   version:
+#     strategy:
+#       main: {{ now | date: 'yyyy.DDD' }}
+#       pull-request: "pr-{branch}"
+#     commit: {{ github.sha }}
+
+parameters:
+  - VERSION
+  - COMMIT
+
+publish:
+  artifacts:
+    # Uses dotnet test *.sln
+    - src: krp.sln
+      type: test
+
+    # Uses dotnet pack *.sln
+    # define defaultPushSource in nuget.config
+    # <config>
+    #   <add key="defaultPushSource" value="https://api.nuget.org/v3/index.json" />
+    # </config>
+    - src: krp.sln
+      type: nuget 
+      with:
+        apiKey: ${{ secrets.NUGET_API_KEY }}
+        source: https://api.nuget.org/v3/index.json
+
+    # Uses docker build -t {ContainerRepository}{ContainerImageName}:latest .
+    # define image  in csproj
+    # <PropertyGroup>
+    #   <ContainerImageName>krp</ContainerImageName>
+    #   <ContainerRepository>eddietisma</ContainerRepository>
+    #   <ContainerRegistry>docker.io</ContainerRegistry>
+    # </PropertyGroup>
+    - src: src/Krp/Krp.csproj
+      type: docker
+      with:
+        base: mcr.microsoft.com/dotnet/aspnet:9.0
+        tags: [
+          "docker.io/eddietisma/krp:${VERSION}.${COMMIT}",
+          "docker.io/eddietisma/krp:latest"
+        ]
+          
+
+    # - name: src/dotnet-krp/dotnet-krp
+    #   type: nuget
+
+    # - name: src/Krp/Krp
+    #   type: nuget
+
+    # - name: src/Krp/Krp
+    #   type: docker
+    #   with:
+    #     base: mcr.microsoft.com/dotnet/aspnet:9.0
+    #     image: docker.io/eddietisma/krp
+
+    # - name: test/Krp.Tests
+    #   type: test
+
