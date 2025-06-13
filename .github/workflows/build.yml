@@ -1,0 +1,55 @@
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      commit:
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions: # needed so the action can write to the cache API
+      actions: write
+      contents: read
+    outputs:
+      version: ${{ inputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker build and test
+        uses: docker/bake-action@v6
+        with:
+          source: .
+          files: buildcharts.hcl
+        env:
+          VERSION: ${{ inputs.version }}
+          COMMIT:  ${{ inputs.commit }}
+        # with:
+        #   set: |
+        #     base.cache-from=type=gha,scope=krp
+        #     build.cache-to=type=gha,scope=krp,mode=max
+
+      - name: Save Docker image as tarball
+        run: |
+          docker save buildcharts/buildcharts:${{ inputs.version }}-${{ inputs.commit }} -o buildcharts-${{ inputs.version }}-${{ inputs.commit }}.tar
+
+      - name: Upload nuget artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget
+          path: .buildcharts/output/nuget
+
+      - name: Upload docker
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker
+          path: buildcharts-${{ inputs.version }}-${{ inputs.commit }}.tar
