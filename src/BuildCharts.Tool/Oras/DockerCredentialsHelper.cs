@@ -2,6 +2,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -40,58 +41,113 @@ public static class DockerCredentialHelper
     private static async Task<SingleRegistryCredentialProvider> RunCredentialHelper(string helperName, string registry)
     {
         var exe = $"docker-credential-{helperName}";
-        var psi = new ProcessStartInfo
+
+        if (!await HelperHasCredentialsAsync(exe, registry))
+        {
+            return null;
+        }
+
+        using var process = Process.Start(new ProcessStartInfo
         {
             FileName = exe,
+            Arguments = "get",
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            UseShellExecute = false
-        };
+            UseShellExecute = false,
+        });
 
-        using var proc = Process.Start(psi);
-        if (proc == null)
+        if (process == null)
         {
             return null;
         }
 
-        await proc.StandardInput.WriteLineAsync(registry);
-        proc.StandardInput.Close();
+        await process.StandardInput.WriteLineAsync(registry);
+        process.StandardInput.Close();
 
-        var output = await proc.StandardOutput.ReadToEndAsync();
-        var error = await proc.StandardError.ReadToEndAsync();
-        await proc.WaitForExitAsync();
+        var output = await process.StandardOutput.ReadToEndAsync();
+        var error = await process.StandardError.ReadToEndAsync();
 
-        if (proc.ExitCode != 0)
+        await process.WaitForExitAsync();
+
+        if (process.ExitCode != 0)
         {
-            Console.Error.WriteLine($"Credential helper '{exe}' failed: {error}");
+            var msg = string.IsNullOrWhiteSpace(error) ? output : error;
+            Console.Error.WriteLine($"Credential helper '{exe}' failed (exit {process.ExitCode}): {msg}");
             return null;
         }
 
-        JsonDocument resultDoc;
         try
         {
-            resultDoc = JsonDocument.Parse(output);
+            var result = JsonDocument.Parse(output);
+
+            var root = result.RootElement;
+            var username = root.GetProperty("Username").GetString();
+            var secret = root.GetProperty("Secret").GetString();
+
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(secret))
+            {
+                return null;
+            }
+
+            return new SingleRegistryCredentialProvider(registry, new Credential
+            {
+                Username = username,
+                Password = secret,
+            });
         }
         catch (JsonException)
         {
             Console.Error.WriteLine($"Invalid JSON from credential helper '{exe}': {output}");
             return null;
         }
+    }
 
-        var root = resultDoc.RootElement;
-        var username = root.GetProperty("Username").GetString();
-        var secret = root.GetProperty("Secret").GetString();
-
-        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(secret))
+    private static async Task<bool> HelperHasCredentialsAsync(string exe, string registry)
+    {
+        using var process = Process.Start(new ProcessStartInfo
         {
-            return null;
+            FileName = exe,
+            Arguments = "list",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        });
+
+        if (process is null)
+        {
+            return false;
         }
 
-        return new SingleRegistryCredentialProvider(registry, new Credential
+        var output = await process.StandardOutput.ReadToEndAsync();
+        var error = await process.StandardError.ReadToEndAsync();
+
+        await process.WaitForExitAsync();
+
+
+        if (process.ExitCode != 0)
         {
-            Username = username,
-            Password = secret,
-        });
+            var msg = string.IsNullOrWhiteSpace(error) ? output : error;
+            Console.Error.WriteLine($"Credential helper '{exe}' failed (exit {process.ExitCode}): {msg}");
+            return false;
+        }
+
+        try
+        {
+            using var result = JsonDocument.Parse(output);
+
+            if (result.RootElement.EnumerateObject()
+                .Any(property => property.Name.Contains(registry, StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+
+        return false;
     }
 }
