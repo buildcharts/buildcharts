@@ -36,9 +36,9 @@ jobs:
         with:
           source: .
           files: buildcharts.hcl
-          set: |
-            base.cache-from=type=gha,scope=buildcharts
-            build.cache-to=type=gha,scope=buildcharts,mode=max
+          # set: |
+          #   _common.cache-from=type=gha,scope=buildcharts
+          #   _common.cache-to=type=gha,scope=buildcharts,mode=max
         env:
           VERSION: ${{ inputs.version }}
           COMMIT:  ${{ inputs.commit }}

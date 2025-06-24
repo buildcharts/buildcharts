@@ -12,7 +12,7 @@ public class PullCommand
 {
     [Argument(0, Name = "reference", Description = "OCI reference in the form registry/repo[:tag]")]
     [Required]
-    public string Reference { get; set; } = default!;
+    public string Reference { get; set; }
 
     //[Option("-o|--output <OUTPUT>", Description = "Output directory (default: current)")]
     //public string OutputDir { get; set; } = ".";
@@ -26,7 +26,7 @@ public class PullCommand
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Failed to pull: {ex.Message}");
+            Console.Error.WriteLine($"Error: {ex.Message}");
             return 1;
         }
     }
