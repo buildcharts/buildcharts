@@ -55,7 +55,7 @@ public class OrasClient
     {
         try
         {
-            Console.WriteLine($"Pulling {repository}:{tag}");
+            //Console.WriteLine($"Pulling {repository}:{tag}");
 
             var client = new Client
             {
