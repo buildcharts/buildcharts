@@ -25,24 +25,32 @@ public class GenerateCommand
 
     public async Task<int> OnExecuteAsync(CommandLineApplication app, CancellationToken ct)
     {
-        var deserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .WithTypeConverter(new FlexibleListYamlTypeConverter<TargetDefinition>())
-            .IgnoreUnmatchedProperties()
-            .Build();
+        try
+        {
+            var deserializer = new DeserializerBuilder()
+                .WithNamingConvention(CamelCaseNamingConvention.Instance)
+                .WithTypeConverter(new FlexibleListYamlTypeConverter<TargetDefinition>())
+                .IgnoreUnmatchedProperties()
+                .Build();
 
-        var buildYaml = await File.ReadAllTextAsync("build.yml", ct);
-        var chartYaml = await File.ReadAllTextAsync("charts/buildcharts/Chart.yaml", ct);
+            var buildYaml = await File.ReadAllTextAsync("build.yml", ct);
+            var chartYaml = await File.ReadAllTextAsync("charts/buildcharts/Chart.yaml", ct);
 
-        var buildConfig = deserializer.Deserialize<BuildConfig>(buildYaml);
-        var chartConfig = deserializer.Deserialize<ChartConfig>(chartYaml);
+            var buildConfig = deserializer.Deserialize<BuildConfig>(buildYaml);
+            var chartConfig = deserializer.Deserialize<ChartConfig>(chartYaml);
 
-        var pullTasks = chartConfig.Dependencies.Select(dependency => OrasClient.Pull($"{dependency.Repository}/{dependency.Name}:{dependency.Version}"));
-        await Task.WhenAll(pullTasks);
+            var pullTasks = chartConfig.Dependencies.Select(dependency => OrasClient.Pull($"{dependency.Repository}/{dependency.Name}:{dependency.Version}"));
+            await Task.WhenAll(pullTasks);
 
-        await _bakeGenerator.GenerateAsync("buildcharts.hcl", buildConfig, chartConfig);
-        Console.WriteLine("Generated buildcharts.hcl");
+            await _bakeGenerator.GenerateAsync("buildcharts.hcl", buildConfig, chartConfig);
+            Console.WriteLine("Generated buildcharts.hcl");
 
-        return 0;
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error: {ex.Message}");
+            return 1;
+        }
     }
 }

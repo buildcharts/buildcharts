@@ -23,8 +23,7 @@ public static class DockerCredentialHelper
         var root = doc.RootElement;
 
         // Try specific credHelper for the registry.
-        if (root.TryGetProperty("credHelpers", out var helpers) &&
-            helpers.TryGetProperty(registry, out var helperName))
+        if (root.TryGetProperty("credHelpers", out var helpers) && helpers.TryGetProperty(registry, out var helperName))
         {
             return await RunCredentialHelper(helperName.GetString(), registry);
         }

@@ -13,6 +13,9 @@
 - **Pipeline Generation**: Pipelines are generated dynamically based on the metadata file and templates.
 - **Artifact Outputs**: Supports Docker images, NuGet packages, test results, etc.
 
+### Prerequisites
+- docker (**20.10+**) or Docker Desktop (**4.38+**) must be installed to support running builds with `docker buildx bake`.
+
 ## **How `buildcharts` works**
 
 ### File structure
@@ -105,11 +108,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # - name: Set up BuildCharts
-      #   uses: buildcharts/setup-action@v1
+      - name: Set up BuildCharts
+        uses: buildcharts/setup-action@v1
       
-      # - name: Generate BuildCharts
-      #   uses: buildcharts/generate-action@v1
+      - name: Generate BuildCharts
+        uses: buildcharts/generate-action@v1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -117,24 +120,21 @@ jobs:
       - name: Docker build and test
         uses: docker/bake-action@v6
         with:
-          source: . # TODO: Is this needed?
+          source: .
           files: buildcharts.hcl
-          # Enable Docker Buildx caching
-          set: |
-            base.cache-from=type=gha,scope=buildcharts
-            build.cache-to=type=gha,scope=buildcharts,mode=max
         env:
           VERSION: ${{ github.ref_name }}
           COMMIT: ${{ github.sha }}
 ```
 
 ### Results
-- `buildcharts generate` outputs a Docker bake file `buildcharts.hcl`
-  - Each `type: docker` will be resolved using chart `alias: docker`.
-  - Each chart dockerfile will be included in the HCL.
-- `docker buildx bake` executes the build.
-  - Utilizing docker for isolated and reproducible builds.
-  - Built-in support for caching, scaling, metadata, provenance, SBOM etc.
+- Running `buildcharts generate` produces a Docker Bake configuration file: `buildcharts.hcl`.
+  - Each entry with `type: docker` is resolved using the chart identified by `alias: docker`.
+  - Dockerfiles defined within each chart are included directly into the generated Bake configuration.
+- Execute the build using `docker buildx bake`:
+  - Builds run inside Docker, ensuring isolated and reproducible environments.
+  - Utilizes Docker’s **high-level builds** with the modern [Buildx Bake](https://docs.docker.com/build/bake/) configurations from the [moby project](https://github.com/moby/moby).
+  - Provides built-in features such as caching, scalability, metadata tracking, build provenance, Software Bill of Materials (SBOM), and more.
 
 Templates support:
 - 🐳 Docker image builds
