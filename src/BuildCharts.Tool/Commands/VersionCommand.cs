@@ -11,23 +11,31 @@ public class VersionCommand
 {
     public int OnExecute()
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        var version = assembly.GetName().Version;
-        var location = assembly.Location;
+        try
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            var version = assembly.GetName().Version;
+            var location = assembly.Location;
 
-        var dotnetVersion = Environment.Version.ToString();
-        var gitCommit = version!.Build;
-        var buildDate = File.GetLastWriteTimeUtc(location).ToString("yyyy-MM-ddTHH:mm:ssZ");
-        var os = RuntimeInformation.OSDescription.Trim();
-        var arch = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
+            var dotnetVersion = Environment.Version.ToString();
+            var gitCommit = version!.Build;
+            var buildDate = File.GetLastWriteTimeUtc(location).ToString("yyyy-MM-ddTHH:mm:ssZ");
+            var os = RuntimeInformation.OSDescription.Trim();
+            var arch = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
 
-        Console.WriteLine("buildcharts");
-        Console.WriteLine($" version:       {version}");
-        Console.WriteLine($" commit:        {gitCommit}");
-        Console.WriteLine($" built:         {buildDate}");
-        Console.WriteLine($" os/arch:       {os}/{arch}");
-        Console.WriteLine($" .NET version:  {dotnetVersion}");
+            Console.WriteLine("buildcharts");
+            Console.WriteLine($" version:       {version}");
+            Console.WriteLine($" commit:        {gitCommit}");
+            Console.WriteLine($" built:         {buildDate}");
+            Console.WriteLine($" os/arch:       {os}/{arch}");
+            Console.WriteLine($" .NET version:  {dotnetVersion}");
 
-        return 0;
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error: {ex.Message}");
+            throw;
+        }
     }
 }

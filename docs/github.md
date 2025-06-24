@@ -1,4 +1,4 @@
-# Integration with GitHub
+# GitHub integration
 
 This document describes how to use `buildcharts` to automate your .NET project workflows using **GitHub Actions**.
 
@@ -37,16 +37,17 @@ jobs:
 
 ## Enable caching
 
+Use Docker cache storage backend [GitHub Actions cache (gha)](https://docs.docker.com/build/cache/backends/gha/) for  efficient caching using [Cache Action](https://github.com/actions/cache).
+
 ```yaml
 - name: Docker build and test
   uses: docker/bake-action@v6
   with:
     files: ./buildcharts.hcl
+    set: |
+      _common.cache-from=type=gha,scope=buildcharts
+      _common.cache-to=type=gha,scope=buildcharts,mode=max
   env:
     VERSION: ${{ inputs.version }}
     COMMIT:  ${{ inputs.commit }}
-  with:
-    set: |
-      base.cache-from=type=gha,scope=buildcharts
-      build.cache-to=type=gha,scope=buildcharts,mode=max
 ```

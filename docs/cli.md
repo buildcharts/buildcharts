@@ -1,4 +1,4 @@
-# CLI
+# Command-line interface
 Supports dynamic generation at runtime (e.g., pipeline generates new pipelines via API or buildx bake).
 
 ```bash
@@ -54,13 +54,14 @@ buildcharts initialized
 
 ### `buildcharts pull`
 
-Pulls the OCI chart from the container registry.
+Pulls the OCI chart from the container registry. By default, it leverages Docker's authentication mechanism, utilizing existing credentials stored in `~/.docker/config.json`.
 
 ```console
 # buildcharts pull oci://docker.io/buildcharts/dotnet-build:0.0.1                    
 Pulled: docker.io/buildcharts/dotnet-build:0.0.1 (582 bytes)
 Digest: sha256:f8fa3e928f25cc651f541a408222978941cde466beaaae7e60be6b5b1ca02ff9
 ```
+
 
 ### `buildcharts generate`
 

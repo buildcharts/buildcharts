@@ -9,16 +9,9 @@ public class Program
 {
     public async static Task Main(string[] args)
     {
-        Console.OutputEncoding = System.Text.Encoding.UTF8; // Enable emojis in console output.
+        // Enable emojis in console output.
+        Console.OutputEncoding = System.Text.Encoding.UTF8; 
 
-        try
-        {
-            await Host.CreateDefaultBuilder(args).RunCommandLineApplicationAsync<RootCommand>(args);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex);
-            throw;
-        }
+        await Host.CreateDefaultBuilder(args).RunCommandLineApplicationAsync<RootCommand>(args);
     }
 }
