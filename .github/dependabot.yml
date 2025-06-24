@@ -1,6 +1,10 @@
 version: 2
 updates:
   - package-ecosystem: "helm"
-    directory: "/charts"
+    directory: "/charts/buildcharts"
     schedule:
       interval: "weekly"
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "monthly"
