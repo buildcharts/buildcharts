@@ -14,7 +14,7 @@
 - **Artifact Outputs**: Supports Docker images, NuGet packages, test results, etc.
 
 ### Prerequisites
-- docker (**20.10+**) or Docker Desktop (**4.38+**) must be installed to support running builds with `docker buildx bake`.
+- Docker (**20.10+**) or Docker Desktop (**4.38+**) must be installed to support running builds with `docker buildx bake`.
 
 ## **How `buildcharts` works**
 
@@ -114,7 +114,7 @@ jobs:
       - name: Generate BuildCharts
         uses: buildcharts/generate-action@v1
 
-      - name: Set up Docker Buildx
+      - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Docker build and test
@@ -128,14 +128,14 @@ jobs:
 ```
 
 ### Results
-- Running `buildcharts generate` produces a Docker Bake configuration file: `buildcharts.hcl`.
+- Running `buildcharts generate` inspects build metadata in `build.yml` and produces a Docker Bake configuration file: `buildcharts.hcl`.
   - Each entry with `type: docker` is resolved using the chart identified by `alias: docker`.
-  - Dockerfiles defined within each chart are included directly into the generated Bake configuration.
-- Execute the build using `docker buildx bake`:
+  - Dockerfiles defined within each chart are inlined directly into the generated Bake configuration.
+- Execute the build using `docker buildx bake`.
   - Builds run inside Docker, ensuring isolated and reproducible environments.
-  - Utilizes Docker’s **high-level builds** with the modern [Buildx Bake](https://docs.docker.com/build/bake/) configurations from the [moby project](https://github.com/moby/moby).
-  - Provides built-in features such as caching, scalability, metadata tracking, build provenance, Software Bill of Materials (SBOM), and more.
-
+  - Uses **high-level builds** with [Buildx Bake](https://docs.docker.com/build/bake/) configurations using BuildKit from the [Moby project](https://github.com/moby/moby).
+  - Built-in features such as caching, scalability, metadata, provenance, Software Bill of Materials (SBOM).
+  
 Templates support:
 - 🐳 Docker image builds
 - 🧪 Test runners
@@ -182,4 +182,4 @@ buildcharts
 - [docs/build.yml.md](docs/build.yml.md) – Metadata specification
 - [docs/plugins.md](docs/plugins.md) – Plugin system
 - [docs/github.md](docs/github.md) – GitHub integration
-- [buildcharts/charts](https://github.com/buildcharts/charts/) – Repository with build charts
+- [buildcharts/charts](https://github.com/buildcharts/charts/) – Collection of build charts

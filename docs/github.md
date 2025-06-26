@@ -26,7 +26,7 @@ jobs:
       - name: Generate BuildCharts
         uses: buildcharts/generate-action@v1
 
-      - name: Setup Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Run Docker Bake
