@@ -32,6 +32,7 @@ jobs:
       - name: Run Docker Bake
         uses: docker/bake-action@v4
         with:
+          source: .
           files: ./buildcharts.hcl
 ```
 
