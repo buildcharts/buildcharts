@@ -6,7 +6,8 @@
       //"commandLineArgs": "version",
       //"commandLineArgs": "init",
       //"commandLineArgs": "generate",
-      "commandLineArgs": "pull registry-1.docker.io/buildcharts/dotnet-build:0.0.1",
+      //"commandLineArgs": "pull registry-1.docker.io/buildcharts/dotnet-build:0.0.1",
+      "commandLineArgs": "summary",
       //"workingDirectory": "$(ProjectDir)",
       //"workingDirectory": "c:\\dev\\eddietisma-krp\\",
       "workingDirectory": "c:\\dev\\eddietisma-buildcharts\\"
