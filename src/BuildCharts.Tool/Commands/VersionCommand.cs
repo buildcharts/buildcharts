@@ -35,7 +35,7 @@ public class VersionCommand
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error: {ex.Message}");
-            throw;
+            return 1;
         }
     }
 }

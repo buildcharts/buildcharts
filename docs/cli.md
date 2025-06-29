@@ -62,7 +62,6 @@ Pulled: docker.io/buildcharts/dotnet-build:0.0.1 (582 bytes)
 Digest: sha256:f8fa3e928f25cc651f541a408222978941cde466beaaae7e60be6b5b1ca02ff9
 ```
 
-
 ### `buildcharts generate`
 
 Generates build pipeline using metadata. Outputs a Docker bake file `buildcharts.hcl`.
@@ -85,3 +84,13 @@ Generated docker-bake.hcl
 Triggers docker buildx bake on the generated `buildcharts.hcl`.
 
  - `$env:VERSION="1.2.3"; $env:COMMIT="abc123"; docker buildx bake`
+
+### `buildcharts summary`
+
+Generates a `SUMMARY.md` file from the latest `docker buildx` history logs.
+
+```console
+# buildcharts summary
+Generating summary for build: <id> (<job>)
+Summary written to SUMMARY.md
+```
