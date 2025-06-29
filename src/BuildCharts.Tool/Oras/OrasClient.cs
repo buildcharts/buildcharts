@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace BuildCharts.Tool.Oras;
 
-public class OrasClient
+public static class OrasClient
 {
     public static async Task Pull(string reference, string outputDir = ".buildcharts")
     {

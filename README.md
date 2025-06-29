@@ -22,7 +22,6 @@
 
 ```
 src/
-├── .buildcharts/        # Created during generation, contains OCI images and build outputs
 ├── build.yml            # Build metadata
 ├── charts/
 │   └── buildcharts/
@@ -150,9 +149,9 @@ Templates support:
 - https://nebula-plugins.github.io
 - https://kustomizer.dev
 - https://kustomizer.dev/guides/fluxcd
+- https://docs.docker.com/reference/dockerfile/#onbuild
 - https://docs.docker.com/build/bake/contexts/#deduplicate-context-transfer
 - https://docs.docker.com/build/cache/backends/registry/
-- https://docs.docker.com/guides/bake/#exporting-build-artifacts
 - https://docs.docker.com/build/concepts/context/#git-repositories
 - https://docs.docker.com/build/cache/backends/registry/
 - https://docs.docker.com/guides/bake/#exporting-build-artifacts
@@ -178,6 +177,7 @@ buildcharts
   version      # version info
   package      # package chart
   pull         # pull chart 
+  summary      # summarize build logs
 ```
 
 ## Documentation

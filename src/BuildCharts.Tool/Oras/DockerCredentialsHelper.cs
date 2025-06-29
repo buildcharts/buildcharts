@@ -108,10 +108,10 @@ public static class DockerCredentialHelper
         {
             FileName = exe,
             Arguments = "list",
+            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true,
         });
 
         if (process is null)
@@ -123,7 +123,6 @@ public static class DockerCredentialHelper
         var error = await process.StandardError.ReadToEndAsync();
 
         await process.WaitForExitAsync();
-
 
         if (process.ExitCode != 0)
         {

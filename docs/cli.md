@@ -61,7 +61,6 @@ Pulled: docker.io/buildcharts/dotnet-build:0.0.1 (582 bytes)
 Digest: sha256:f8fa3e928f25cc651f541a408222978941cde466beaaae7e60be6b5b1ca02ff9
 ```
 
-
 ### `buildcharts generate`
 
 Generates build pipeline using metadata. Outputs a Docker bake file `.buildcharts/docker-bake.hcl`. It also validates `Chart.yaml` digests by comparing them to chart tags, and cleans the `.buildcharts` folder to keep a clean state.
