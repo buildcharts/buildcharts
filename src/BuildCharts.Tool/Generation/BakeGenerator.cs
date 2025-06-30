@@ -109,7 +109,7 @@ public class BakeGenerator
                 }
                 else
                 {
-                    sb.AppendLine("  output = [\"type=cacheonly\"]");
+                    sb.AppendLine("  output = [\"type=cacheonly,mode=max\"]");
                 }
 
                 sb.AppendLine("}\n");
