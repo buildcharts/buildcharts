@@ -51,13 +51,44 @@ public class BakeGenerator
 
                 sb.AppendLine($"target \"{target}\" {{");
                 sb.AppendLine($"  inherits = [\"_common\"]");
+                sb.AppendLine($"  target = \"{type}\"");
 
                 if (type == "build")
                 {
                     sb.AppendLine("  context = \".\"");
                 }
 
-                sb.AppendLine($"  target = \"{type}\"");
+                // Emit args
+                sb.AppendLine("  args = {");
+                sb.AppendLine($"    BUILDCHARTS_SRC = \"{src}\"");
+                sb.AppendLine($"    BUILDCHARTS_TYPE = \"{type}\"");
+                sb.AppendLine("  }");
+
+                // Emit output
+                sb.AppendLine(type == "docker" ?
+                    "  output = [\"type=docker\"]" :
+                    "  output = [\"type=cacheonly,mode=max\"]");
+
+                // Emit custom tags if defined
+                if (def.With.TryGetValue("tags", out var rawTags) && rawTags is List<object> tagList)
+                {
+                    var tags = tagList.Cast<string>().Select(t => $"\"{t}\"");
+                    sb.AppendLine($"  tags = [\n    {string.Join(",\n    ", tags)}\n  ]");
+                }
+
+                // Emit contexts
+                sb.AppendLine("  contexts = {");
+                if (type != "build")
+                {
+                    sb.AppendLine("    build = \"target:build\"");
+                }
+
+                if (def.With.TryGetValue("base", out var baseImage)) // Add custom context if defined
+                {
+                    sb.AppendLine($"    base = \"docker-image://{baseImage}\"");
+                }
+                sb.AppendLine("  }");
+
 
                 if (useInlineDockerFile)
                 {
@@ -77,40 +108,6 @@ public class BakeGenerator
                     sb.AppendLine($"  dockerfile = \"./.buildcharts/{chartAlias}/Dockerfile\"");
                 }
 
-                sb.AppendLine("  args = {");
-                sb.AppendLine($"    BUILDCHARTS_SRC = \"{src}\"");
-                sb.AppendLine($"    BUILDCHARTS_TYPE = \"{type}\"");
-                sb.AppendLine("  }");
-
-                sb.AppendLine("  contexts = {");
-                if (type != "build")
-                {
-                    sb.AppendLine($"    build = \"target:build\"");
-                }
-
-                // Add custom context if defined
-                if (def.With.TryGetValue("base", out var baseImage))
-                {
-                    sb.AppendLine($"    base = \"docker-image://{baseImage}\"");
-                }
-                sb.AppendLine("  }");
-
-                // Add custom tags if defined
-                if (def.With.TryGetValue("tags", out var rawTags) && rawTags is List<object> tagList)
-                {
-                    var tags = tagList.Cast<string>().Select(t => $"\"{t}\"");
-                    sb.AppendLine($"  tags = [\n    {string.Join(",\n    ", tags)}\n  ]");
-                }
-
-                if (type == "docker")
-                {
-                    sb.AppendLine("  output = [\"type=docker\"]");
-                }
-                else
-                {
-                    sb.AppendLine("  output = [\"type=cacheonly,mode=max\"]");
-                }
-
                 sb.AppendLine("}\n");
             }
         }
@@ -124,27 +121,27 @@ public class BakeGenerator
         }
 
         sb.AppendLine("target \"output\" {");
-        sb.AppendLine("  dockerfile-inline = <<BUILDCHARTS_EOF");
-        sb.AppendLine(string.Join(Environment.NewLine, inlineDockerfile));
-        sb.AppendLine("BUILDCHARTS_EOF");
+        sb.AppendLine("  output = [");
+        sb.AppendLine("    \"type=local,dest=.buildcharts/output\"");
+        sb.AppendLine("  ]");
         sb.AppendLine("  contexts = {");
 
         foreach (var target in typedTargets.Where(x => x.Type is not "docker" and not "build"))
         {
             sb.AppendLine($"    {target.Name} = \"target:{target.Name}\"");
         }
-
         sb.AppendLine("  }");
-        sb.AppendLine("  output = [");
-        sb.AppendLine("    \"type=local,dest=.buildcharts/output\"");
-        sb.AppendLine("  ]");
-        sb.AppendLine("}\n");
+        sb.AppendLine("  dockerfile-inline = <<BUILDCHARTS_EOF");
+        sb.AppendLine(string.Join(Environment.NewLine, inlineDockerfile));
+        sb.AppendLine("BUILDCHARTS_EOF");
+        sb.AppendLine("}");
+        sb.AppendLine("");
 
         // Emit group
         sb.AppendLine("group \"default\" {");
         sb.AppendLine($"  targets = [{string.Join(", ", typedTargets.Select(x => $"\"{x.Name}\""))}, \"output\"]");
         sb.AppendLine("}");
-
+        
         await File.WriteAllTextAsync(outputPath, sb.ToString());
     }
 
