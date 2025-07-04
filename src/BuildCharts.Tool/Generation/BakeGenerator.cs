@@ -11,9 +11,8 @@ namespace BuildCharts.Tool.Generation;
 public class BakeGenerator
 {
     private readonly HashSet<string> _usedNames = [];
-    private readonly bool _inlineDockerFile = true;
 
-    public async Task GenerateAsync(string outputPath, BuildConfig buildConfig, ChartConfig chartConfig)
+    public async Task GenerateAsync(string outputPath, BuildConfig buildConfig, ChartConfig chartConfig, bool useInlineDockerFile)
     {
         var sb = new StringBuilder();
 
@@ -60,7 +59,7 @@ public class BakeGenerator
 
                 sb.AppendLine($"  target = \"{type}\"");
 
-                if (_inlineDockerFile)
+                if (useInlineDockerFile)
                 {
                     var dockerfilePath = $".buildcharts/{chartAlias}/Dockerfile";
                     if (!File.Exists(dockerfilePath))

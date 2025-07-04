@@ -16,6 +16,9 @@ namespace BuildCharts.Tool.Commands;
 [Command(Name = "generate", Description = "Generate build using declarative metadata")]
 public class GenerateCommand
 {
+    [Argument(0, Name = "use-inline-dockerfiles", Description = "Use inlined dockerfiles")]
+    public bool UseInlineDockerFile { get; set; } = false;
+
     private readonly BakeGenerator _bakeGenerator;
 
     public GenerateCommand()
@@ -42,7 +45,7 @@ public class GenerateCommand
             var pullTasks = chartConfig.Dependencies.Select(dependency => OrasClient.Pull($"{dependency.Repository}/{dependency.Name}:{dependency.Version}"));
             await Task.WhenAll(pullTasks);
 
-            await _bakeGenerator.GenerateAsync("buildcharts.hcl", buildConfig, chartConfig);
+            await _bakeGenerator.GenerateAsync("buildcharts.hcl", buildConfig, chartConfig, UseInlineDockerFile);
             Console.WriteLine("Generated buildcharts.hcl");
 
             return 0;
