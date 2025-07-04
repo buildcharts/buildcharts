@@ -168,11 +168,12 @@ public class BakeGenerator
             .Replace("/", "-")
             .Replace(".", "-");
 
-        var name = $"{type}_{cleanSrc}".ToLowerInvariant();
+        var name = $"{type}__{cleanSrc}".ToLowerInvariant();
 
         // Ensure uniqueness in case of collisions
         var originalName = name;
-        int counter = 1;
+        var counter = 1;
+
         while (!_usedNames.Add(name))
         {
             name = $"{originalName}-{counter++}";
