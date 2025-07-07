@@ -56,6 +56,14 @@ public class BakeGenerator
                 if (type == "build")
                 {
                     sb.AppendLine("  context = \".\"");
+
+                    if (buildConfig.Plugins.Contains("nuget-authenticate"))
+                    {
+                        sb.AppendLine("  secret = [");
+                        sb.AppendLine("    \"type=file,id=VSS_NUGET_EXTERNAL_FEED_ENDPOINTS,src=.buildcharts/secrets/VSS_NUGET_EXTERNAL_FEED_ENDPOINTS\",");
+                        sb.AppendLine("    \"type=file,id=VSS_NUGET_ACCESSTOKEN,src=.buildcharts/secrets/VSS_NUGET_ACCESSTOKEN\"");
+                        sb.AppendLine("  ]");
+                    }
                 }
 
                 // Emit args
