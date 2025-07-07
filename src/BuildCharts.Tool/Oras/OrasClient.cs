@@ -95,6 +95,11 @@ public static class OrasClient
             var tgzFilePath = Path.Combine(outputDir, $"{repository.Replace('/', '-')}-{tag}.tgz");
             Directory.CreateDirectory(outputDir);
 
+            if (File.Exists(tgzFilePath))
+            {
+                File.Delete(tgzFilePath);
+            }
+
             await using (var fileStream = File.Create(tgzFilePath))
             {
                 await chartStream.CopyToAsync(fileStream);
