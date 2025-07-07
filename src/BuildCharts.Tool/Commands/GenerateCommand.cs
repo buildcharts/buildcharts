@@ -2,6 +2,7 @@
 using BuildCharts.Tool.Generation.Models;
 using BuildCharts.Tool.Generation.YamlTypeConverters;
 using BuildCharts.Tool.Oras;
+using BuildCharts.Tool.Plugins.NuGetAuthenticate;
 using McMaster.Extensions.CommandLineUtils;
 using System;
 using System.IO;
@@ -41,6 +42,21 @@ public class GenerateCommand
 
             var buildConfig = deserializer.Deserialize<BuildConfig>(buildYaml);
             var chartConfig = deserializer.Deserialize<ChartConfig>(chartYaml);
+
+
+            var pluginTasks = buildConfig.Plugins.Select(plugin =>
+            {
+                switch (plugin)
+                {
+                    case "nuget-authenticate":
+                        var nuGetAuthenticatePlugin = new NuGetAuthenticatePlugin();
+                        return nuGetAuthenticatePlugin.OnExecuteAsync(ct);
+                    default:
+                        return Task.CompletedTask;
+                }
+            });
+
+            await Task.WhenAll(pluginTasks);
 
             var pullTasks = chartConfig.Dependencies.Select(dependency => OrasClient.Pull($"{dependency.Repository}/{dependency.Name}:{dependency.Version}"));
             await Task.WhenAll(pullTasks);

@@ -25,7 +25,7 @@ public static class Helm
 
                               - name: dotnet-docker
                                 alias: docker
-                                version: 0.0.1
+                                version: 0.0.2
                                 repository: oci://registry-1.docker.io/buildcharts
 
                               - name: dotnet-nuget
