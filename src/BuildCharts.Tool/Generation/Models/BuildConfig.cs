@@ -7,6 +7,7 @@ public class BuildConfig
 {
     public string Version { get; set; }
     public List<string> Environment { get; set; } = [];
+    public List<string> Plugins { get; set; } = [];
     public Dictionary<string, FlexibleList<TargetDefinition>> Targets { get; set; } = [];
 }
 
