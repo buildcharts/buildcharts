@@ -138,6 +138,7 @@ public class BakeGenerator
         {
             sb.AppendLine($"    {target.Name} = \"target:{target.Name}\"");
         }
+
         sb.AppendLine("  }");
         sb.AppendLine("  dockerfile-inline = <<BUILDCHARTS_EOF");
         sb.AppendLine(string.Join(Environment.NewLine, inlineDockerfile));
@@ -145,11 +146,20 @@ public class BakeGenerator
         sb.AppendLine("}");
         sb.AppendLine("");
 
-        // Emit group
+        // Emit groups
+        foreach (var typeGroup in typedTargets.GroupBy(x => x.Type).Where(x => x.Key is not "build"))
+        {
+            sb.AppendLine($"group \"{typeGroup.Key}\" {{");
+            sb.AppendLine($"  targets = [");
+            sb.AppendLine($"    {string.Join(",\n    ", typeGroup.Select(x => $"\"{x.Name}\""))}");
+            sb.AppendLine("   ]");
+            sb.AppendLine("}");
+        }
+
         sb.AppendLine("group \"default\" {");
-        sb.AppendLine($"  targets = [{string.Join(", ", typedTargets.Select(x => $"\"{x.Name}\""))}, \"output\"]");
+        sb.AppendLine($"  targets = [{string.Join(", ", typedTargets.GroupBy(x => x.Type).Select(x => $"\"{x.Key}\""))}, \"output\"]");
         sb.AppendLine("}");
-        
+
         await File.WriteAllTextAsync(outputPath, sb.ToString());
     }
 
