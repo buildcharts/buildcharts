@@ -111,10 +111,17 @@ public static class OrasClient
             Console.WriteLine($"Pulled: {registry}/{repository}:{tag} ({manifestDescriptor.Size} bytes)");
             Console.WriteLine($"Digest: {manifestDescriptor.Digest}");
 
-            await using var tgzStream = File.OpenRead(tgzFilePath);
-            await using var gzipStream = new GZipInputStream(tgzStream);
-            using var tarArchive = TarArchive.CreateInputTarArchive(gzipStream, Encoding.UTF8);
-            tarArchive.ExtractContents(outputDir);
+            await using (var tgzStream = File.OpenRead(tgzFilePath))
+            await using (var gzipStream = new GZipInputStream(tgzStream))
+            using (var tarArchive = TarArchive.CreateInputTarArchive(gzipStream, Encoding.UTF8))
+            {
+                tarArchive.ExtractContents(outputDir);
+            }
+
+            if (File.Exists(tgzFilePath))
+            {
+                File.Delete(tgzFilePath);
+            }
         }
         catch (ResponseException e)
         {
