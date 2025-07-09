@@ -12,7 +12,7 @@ public class BakeGenerator
 {
     private readonly HashSet<string> _usedNames = [];
 
-    public async Task GenerateAsync(string outputPath, BuildConfig buildConfig, ChartConfig chartConfig, bool useInlineDockerFile)
+    public async Task<StringBuilder> GenerateAsync(BuildConfig buildConfig, ChartConfig chartConfig, bool useInlineDockerFile)
     {
         var sb = new StringBuilder();
 
@@ -56,14 +56,6 @@ public class BakeGenerator
                 if (type == "build")
                 {
                     sb.AppendLine("  context = \".\"");
-
-                    if (buildConfig.Plugins.Contains("nuget-authenticate"))
-                    {
-                        sb.AppendLine("  secret = [");
-                        sb.AppendLine("    \"type=file,id=VSS_NUGET_EXTERNAL_FEED_ENDPOINTS,src=.buildcharts/secrets/VSS_NUGET_EXTERNAL_FEED_ENDPOINTS\",");
-                        sb.AppendLine("    \"type=file,id=VSS_NUGET_ACCESSTOKEN,src=.buildcharts/secrets/VSS_NUGET_ACCESSTOKEN\"");
-                        sb.AppendLine("  ]");
-                    }
                 }
 
                 // Emit args
@@ -160,7 +152,7 @@ public class BakeGenerator
         sb.AppendLine($"  targets = [{string.Join(", ", typedTargets.GroupBy(x => x.Type).Select(x => $"\"{x.Key}\""))}, \"output\"]");
         sb.AppendLine("}");
 
-        await File.WriteAllTextAsync(outputPath, sb.ToString());
+        return sb;
     }
 
     private string UniqueName(BuildConfig buildConfig, string src, string type)
