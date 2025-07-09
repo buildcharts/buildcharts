@@ -2,7 +2,7 @@
 using BuildCharts.Tool.Generation.Models;
 using BuildCharts.Tool.Generation.YamlTypeConverters;
 using BuildCharts.Tool.Oras;
-using BuildCharts.Tool.Plugins.NuGetAuthenticate;
+using BuildCharts.Tool.Plugins;
 using McMaster.Extensions.CommandLineUtils;
 using System;
 using System.IO;
@@ -43,26 +43,28 @@ public class GenerateCommand
             var buildConfig = deserializer.Deserialize<BuildConfig>(buildYaml);
             var chartConfig = deserializer.Deserialize<ChartConfig>(chartYaml);
 
-
-            var pluginTasks = buildConfig.Plugins.Select(plugin =>
+            var plugins = PluginManager.LoadPlugins(buildConfig.Plugins);
+            foreach (var plugin in plugins)
             {
-                switch (plugin)
-                {
-                    case "nuget-authenticate":
-                        var nuGetAuthenticatePlugin = new NuGetAuthenticatePlugin();
-                        return nuGetAuthenticatePlugin.OnExecuteAsync(ct);
-                    default:
-                        return Task.CompletedTask;
-                }
-            });
+                await plugin.OnBeforeGenerateAsync(buildConfig, ct);
+            }
 
-            await Task.WhenAll(pluginTasks);
-
+            Console.WriteLine("Pulling charts...");
             var pullTasks = chartConfig.Dependencies.Select(dependency => OrasClient.Pull($"{dependency.Repository}/{dependency.Name}:{dependency.Version}"));
             await Task.WhenAll(pullTasks);
 
-            await _bakeGenerator.GenerateAsync("buildcharts.hcl", buildConfig, chartConfig, UseInlineDockerFile);
-            Console.WriteLine("Generated buildcharts.hcl");
+            var hclStringBuilder = await _bakeGenerator.GenerateAsync(buildConfig, chartConfig, UseInlineDockerFile);
+
+            foreach (var plugin in plugins)
+            {
+                await plugin.OnAfterGenerateAsync(buildConfig, chartConfig, hclStringBuilder, ct);
+            }
+
+            await File.WriteAllTextAsync("buildcharts.hcl", hclStringBuilder.ToString(), ct);
+
+            Console.WriteLine("");
+            Console.WriteLine("✅ Generated files:");
+            Console.WriteLine("   • \u001b[2mbuildcharts.hcl\u001b[22m");
 
             return 0;
         }
