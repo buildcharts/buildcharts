@@ -170,7 +170,10 @@ public class SummaryCommand
 
             await File.AppendAllTextAsync("SUMMARY.md", sb.ToString(), ct);
 
-            Console.WriteLine("Generated SUMMARY.md");
+            Console.WriteLine("");
+            Console.WriteLine("✅ Generated files:");
+            Console.WriteLine("   • \u001b[2mSUMMARY.md\u001b[22m");
+
             return 0;
         }
         catch (Exception ex)
