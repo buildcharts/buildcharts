@@ -68,15 +68,18 @@ Generates build pipeline using metadata. Outputs a Docker bake file `buildcharts
 
 ```console
 # buildcharts generate
-Pulled: registry-1.docker.io/buildcharts/dotnet-build:0.0.1 (582 bytes)
-Digest: sha256:f8fa3e928f25cc651f541a408222978941cde466beaaae7e60be6b5b1ca02ff9
+Pulling charts...
 Pulled: registry-1.docker.io/buildcharts/dotnet-test:0.0.1 (581 bytes)
-Digest: sha256:d119b77008ac9c37445dd312004f4c0f87f0238dc9bff9e9b952f751b982eeed
+Digest: sha256:e2fc7641da11faa2f90d2a4991fa8c37e97a0825988f1d4352758da4bc5dd587
+Pulled: registry-1.docker.io/buildcharts/dotnet-docker:0.0.2 (583 bytes)
+Digest: sha256:d3a3957520bff850383d6d79b692888595f437c872c2f860d75544751813ddde
+Pulled: registry-1.docker.io/buildcharts/dotnet-build:0.0.1 (582 bytes)
+Digest: sha256:aca33142a81a9e79d584de7882a740240163e27411ad0f4ebe0336ed2de0cb4e
 Pulled: registry-1.docker.io/buildcharts/dotnet-nuget:0.0.1 (582 bytes)
-Digest: sha256:13177b860402678c9f24955aad4ab646bf20f14bafee346acc7c8e7fb51fcb8a
-Pulled: registry-1.docker.io/buildcharts/dotnet-docker:0.0.1 (583 bytes)
-Digest: sha256:86c21c8028bdc3a3fe27422b8812426c32c30ef08c4747bfcf85c0ed33ca3676
-Generated docker-bake.hcl
+Digest: sha256:6b6b99dd94c8b9f388890770fc3f1249c07561c9347d9eb98802c3bf44fbf47a
+
+✅ Generated files:
+   • buildcharts.hcl
 ```
 
 ### `buildcharts run`
@@ -92,5 +95,7 @@ Generates a `SUMMARY.md` file from the latest `docker buildx` history logs.
 ```console
 # buildcharts summary
 Generating summary for build: <id> (<job>)
-Summary written to SUMMARY.md
+
+✅ Generated files:
+   • SUMMARY.md
 ```
