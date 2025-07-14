@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,25 +18,7 @@ public static class DotnetProvider
         var projectTypeMap = new Dictionary<string, TargetConfig>();
 
         var csprojFiles = Directory.GetFiles(".", "*.csproj", SearchOption.AllDirectories);
-
-        var slnFile = Directory.GetFiles(".", "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault()
-            ?? throw new FileNotFoundException("No .sln file found in the root directory.");
-
-        // Detect SDK version.
-        var sdkVersion = "9.0"; // fallback default
-        foreach (var file in csprojFiles)
-        {
-            var content = await File.ReadAllTextAsync(file, ct);
-
-            var match = Regex.Match(content, @"<TargetFramework>net(\d+\.\d+)");
-            if (!match.Success)
-            {
-                continue;
-            }
-
-            sdkVersion = match.Groups[1].Value;
-            break;
-        }
+        var sdkVersion = await DetectSdkVersion(ct, csprojFiles) ?? "9.0";
 
         var sb = new StringBuilder();
         sb.AppendLine("version: latest");
@@ -45,6 +28,9 @@ public static class DotnetProvider
         sb.AppendLine("  - COMMIT");
         sb.AppendLine();
         sb.AppendLine("targets:");
+        
+        var slnFile = Directory.GetFiles(".", "*.sln", SearchOption.AllDirectories).FirstOrDefault()
+                      ?? throw new FileNotFoundException("No .sln file found in the root or src directory.");
 
         var slnRelPath = Path.GetRelativePath(Directory.GetCurrentDirectory(), slnFile).Replace("\\", "/");
 
@@ -54,6 +40,7 @@ public static class DotnetProvider
             ["base"] = $"mcr.microsoft.com/dotnet/sdk:{sdkVersion}",
         });
 
+        // Add projects with type detection.
         foreach (var file in csprojFiles)
         {
             var content = await File.ReadAllTextAsync(file, ct);
@@ -133,5 +120,44 @@ public static class DotnetProvider
         await File.WriteAllTextAsync(outputPath, sb.ToString(), ct);
 
         return projectTypeMap;
+    }
+
+    private static async Task<string> DetectSdkVersion(CancellationToken ct, string[] csprojFiles)
+    {
+        var globalJsonPath = Path.Combine(Directory.GetCurrentDirectory(), "global.json");
+
+        if (File.Exists(globalJsonPath))
+        {
+            using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(globalJsonPath, ct));
+
+            if (doc.RootElement.TryGetProperty("sdk", out var sdk) && sdk.TryGetProperty("version", out var versionProp))
+            {
+                var version = versionProp.GetString(); // e.g. "9.0.302"
+                if (!string.IsNullOrWhiteSpace(version))
+                {
+                    // keep only the major.minor part -> "9.0"
+                    var parts = version.Split('.');
+                    if (parts.Length >= 2)
+                    {
+                        return $"{parts[0]}.{parts[1]}";
+                    }
+                }
+            }
+        }
+
+        foreach (var file in csprojFiles)
+        {
+            var content = await File.ReadAllTextAsync(file, ct);
+
+            var match = Regex.Match(content, @"<TargetFramework>net(\d+\.\d+)");
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            return match.Groups[1].Value;
+        }
+
+        return null;
     }
 }
