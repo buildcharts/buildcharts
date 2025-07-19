@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace BuildCharts.Tool.Generation.Models;
+namespace BuildCharts.Tool.Configuration.Models;
 
 public class ChartConfig
 {

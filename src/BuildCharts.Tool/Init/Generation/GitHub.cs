@@ -2,7 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace BuildCharts.Tool.Scaffolding.Generation;
+namespace BuildCharts.Tool.Init.Generation;
 
 public static class GitHub
 {
