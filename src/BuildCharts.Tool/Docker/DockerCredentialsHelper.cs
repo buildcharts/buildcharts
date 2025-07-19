@@ -71,8 +71,11 @@ public static class DockerCredentialHelper
 
         if (process.ExitCode != 0)
         {
-            var msg = string.IsNullOrWhiteSpace(error) ? output : error;
-            Console.Error.WriteLine($"Credential helper '{exe}' failed (exit {process.ExitCode}): {msg}");
+            var msg = string.IsNullOrWhiteSpace(error) ? output.Trim() : error;
+            if (msg != "credentials not found in native keychain") // Ignore, public container registries always gives this error.
+            {
+                Console.Error.WriteLine($"Credential helper '{exe}' failed (exit {process.ExitCode}): {msg}");
+            }
             return null;
         }
 
