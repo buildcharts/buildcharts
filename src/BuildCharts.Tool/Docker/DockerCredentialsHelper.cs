@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace BuildCharts.Tool.Oras;
+namespace BuildCharts.Tool.Docker;
 
 public static class DockerCredentialHelper
 {

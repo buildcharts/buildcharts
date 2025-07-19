@@ -1,4 +1,4 @@
-﻿using BuildCharts.Tool.Generation.Models;
+﻿using BuildCharts.Tool.Configuration.Models;
 using BuildCharts.Tool.Plugins.NuGetAuthenticate_v1.Helpers;
 using System;
 using System.Collections.Generic;

@@ -1,4 +1,4 @@
-﻿using BuildCharts.Tool.Generation.Models;
+﻿using BuildCharts.Tool.Configuration.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,7 +6,7 @@ using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization;
 
-namespace BuildCharts.Tool.Generation.YamlTypeConverters;
+namespace BuildCharts.Tool.Configuration.YamlTypeConverters;
 
 /// <summary>
 /// Allows for flexible types with an array 
@@ -39,7 +39,7 @@ public class FlexibleListYamlTypeConverter<T> : IYamlTypeConverter
             {
                 if (parser.Accept<Scalar>(out var scalar))
                 {
-                    parser.TryConsume<Scalar>(out scalar);
+                    parser.TryConsume(out scalar);
                     var def = new TargetDefinition
                     {
                         Type = scalar.Value,

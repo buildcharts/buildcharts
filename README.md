@@ -75,8 +75,8 @@ dependencies:
     version: 0.0.1
     repository: oci://registry-1.docker.io/buildcharts
 
-  - name: dotnet-docker
-    alias: docker
+  - name: dotnet-test
+    alias: test
     version: 0.0.1
     repository: oci://registry-1.docker.io/buildcharts
 
@@ -85,8 +85,8 @@ dependencies:
     version: 0.0.1
     repository: oci://registry-1.docker.io/buildcharts
 
-  - name: dotnet-test
-    alias: test
+  - name: dotnet-docker
+    alias: docker
     version: 0.0.1
     repository: oci://registry-1.docker.io/buildcharts
 ```

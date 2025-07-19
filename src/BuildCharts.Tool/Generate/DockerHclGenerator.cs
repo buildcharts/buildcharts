@@ -1,4 +1,4 @@
-﻿using BuildCharts.Tool.Generation.Models;
+﻿using BuildCharts.Tool.Configuration.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,9 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BuildCharts.Tool.Generation;
+namespace BuildCharts.Tool.Generate;
 
-public class BakeGenerator
+public class DockerHclGenerator
 {
     private readonly HashSet<string> _usedNames = [];
 
