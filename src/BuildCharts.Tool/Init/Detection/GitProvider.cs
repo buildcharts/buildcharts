@@ -1,4 +1,4 @@
-﻿namespace BuildCharts.Tool.Scaffolding.Detection;
+﻿namespace BuildCharts.Tool.Init.Detection;
 
 public enum GitProvider
 {

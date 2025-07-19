@@ -1,7 +1,7 @@
-﻿using BuildCharts.Tool.Generation.YamlTypeConverters;
+﻿using BuildCharts.Tool.Configuration.YamlTypeConverters;
 using System.Collections.Generic;
 
-namespace BuildCharts.Tool.Generation.Models;
+namespace BuildCharts.Tool.Configuration.Models;
 
 public class BuildConfig
 {

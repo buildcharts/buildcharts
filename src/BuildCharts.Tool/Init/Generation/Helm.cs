@@ -2,7 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace BuildCharts.Tool.Scaffolding.Generation;
+namespace BuildCharts.Tool.Init.Generation;
 
 public static class Helm
 {
@@ -23,22 +23,20 @@ public static class Helm
                                 version: 0.0.1
                                 repository: oci://registry-1.docker.io/buildcharts
 
-                              - name: dotnet-docker
-                                alias: docker
-                                version: 0.0.2
-                                repository: oci://registry-1.docker.io/buildcharts
-
-                              - name: dotnet-nuget
-                                alias: nuget
-                                version: 0.0.1
-                                repository: oci://registry-1.docker.io/buildcharts
-
                               - name: dotnet-test
                                 alias: test
                                 version: 0.0.1
                                 repository: oci://registry-1.docker.io/buildcharts
-
-
+                                  
+                              - name: dotnet-nuget
+                                alias: nuget
+                                version: 0.0.1
+                                repository: oci://registry-1.docker.io/buildcharts
+                                
+                              - name: dotnet-docker
+                                alias: docker
+                                version: 0.0.2
+                                repository: oci://registry-1.docker.io/buildcharts
                             """;
 
         await File.WriteAllTextAsync(outputPath, text, ct);

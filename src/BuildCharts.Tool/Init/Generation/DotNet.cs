@@ -7,11 +7,11 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace BuildCharts.Tool.Scaffolding.Generation;
+namespace BuildCharts.Tool.Init.Generation;
 
 public sealed record TargetConfig(List<string> Types, Dictionary<string, object> With);
 
-public static class DotnetProvider
+public static class DotNet
 {
     public static async Task<Dictionary<string, TargetConfig>> CreateBuildConfig(string outputPath, CancellationToken ct)
     {

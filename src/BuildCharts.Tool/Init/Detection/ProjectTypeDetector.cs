@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace BuildCharts.Tool.Scaffolding.Detection;
+namespace BuildCharts.Tool.Init.Detection;
 
 public static class ProjectTypeDetector
 {

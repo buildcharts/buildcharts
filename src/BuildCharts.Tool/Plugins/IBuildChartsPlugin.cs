@@ -1,4 +1,4 @@
-﻿using BuildCharts.Tool.Generation.Models;
+﻿using BuildCharts.Tool.Configuration.Models;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;

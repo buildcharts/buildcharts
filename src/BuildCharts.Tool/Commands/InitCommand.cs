@@ -1,10 +1,11 @@
-﻿using BuildCharts.Tool.Scaffolding.Detection;
-using BuildCharts.Tool.Scaffolding.Generation;
+﻿using BuildCharts.Tool.Init.Detection;
+using BuildCharts.Tool.Init.Generation;
 using McMaster.Extensions.CommandLineUtils;
 using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using GitProviderDetector = BuildCharts.Tool.Init.Detection.GitProviderDetector;
 
 namespace BuildCharts.Tool.Commands;
 
@@ -22,7 +23,7 @@ public class InitCommand
                 return 1;
             }
 
-            var buildConfig = await DotnetProvider.CreateBuildConfig("build.yml", ct);
+            var buildConfig = await DotNet.CreateBuildConfig("build.yml", ct);
             await Helm.CreateChart("charts/buildcharts/Chart.yaml", ct);
 
             var gitProvider = await GitProviderDetector.DetectAsync(ct);

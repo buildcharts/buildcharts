@@ -1,4 +1,5 @@
-﻿using ICSharpCode.SharpZipLib.GZip;
+﻿using BuildCharts.Tool.Docker;
+using ICSharpCode.SharpZipLib.GZip;
 using ICSharpCode.SharpZipLib.Tar;
 using OrasProject.Oras.Oci;
 using OrasProject.Oras.Registry;
@@ -18,13 +19,13 @@ public static class OrasClient
     {
         var tag = "latest";
 
-        // Optional: strip oci:// prefix
+        // Strip "oci://" prefix.
         if (reference.StartsWith("oci://", StringComparison.OrdinalIgnoreCase))
         {
             reference = reference.Substring("oci://".Length);
         }
 
-        // Validate input
+        // Validate input.
         var firstSlash = reference.IndexOf('/');
         if (firstSlash == -1)
         {
