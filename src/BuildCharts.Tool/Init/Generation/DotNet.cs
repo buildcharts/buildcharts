@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using BuildCharts.Tool.Summary.Extensions;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -79,7 +80,14 @@ public static class DotNet
         }
 
         // Emit targets.
-        foreach (var (relPath, (types, with)) in projectTypeMap)
+        foreach (var (relPath, (types, with)) in projectTypeMap.OrderBy(x => x.Value.Types.First() switch
+         {
+             "build" => 0,
+             "test" => 1,
+             "nuget" => 2,
+             "docker" => 3,
+             _ => 0,
+         }))
         {
             sb.AppendLine($"  {relPath}:");
 
