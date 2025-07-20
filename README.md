@@ -33,7 +33,7 @@ src/
 1. Uses `build.yml` with project-specific metadata.
 
 ```yaml 
-version: latest
+version: v1beta
 
 environment:
   - VERSION

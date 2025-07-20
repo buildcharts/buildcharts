@@ -1,4 +1,4 @@
-version: latest
+version: v1beta
 
 environment:
   - VERSION

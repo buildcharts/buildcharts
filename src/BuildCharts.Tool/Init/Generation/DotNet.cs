@@ -21,7 +21,7 @@ public static class DotNet
         var sdkVersion = await DetectSdkVersion(ct, csprojFiles) ?? "9.0";
 
         var sb = new StringBuilder();
-        sb.AppendLine("version: latest");
+        sb.AppendLine("version: v1beta");
         sb.AppendLine();
         sb.AppendLine("environment:");
         sb.AppendLine("  - VERSION");
