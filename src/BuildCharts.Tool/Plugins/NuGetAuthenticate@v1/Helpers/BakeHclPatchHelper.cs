@@ -5,7 +5,7 @@ namespace BuildCharts.Tool.Plugins.NuGetAuthenticate_v1.Helpers;
 
 public static class BakeHclPatchHelper
 {
-    private const string TARGET_MARKER = "target \"build\"";
+    private const string TARGET_MARKER = "target \"_common\"";
     private const string SECRET_SNIPPET =
         "  secret = [\n" +
         "    \"type=file,id=VSS_NUGET_EXTERNAL_FEED_ENDPOINTS,src=.buildcharts/secrets/VSS_NUGET_EXTERNAL_FEED_ENDPOINTS\",\n" +
@@ -27,7 +27,7 @@ public static class BakeHclPatchHelper
         var start = sb.ToString().IndexOf(TARGET_MARKER, StringComparison.OrdinalIgnoreCase);
         if (start < 0)
         {
-            throw new InvalidOperationException("Could not find target \"build\".");
+            throw new InvalidOperationException("Could not find target \"common\".");
         }
 
         // 2) Locate the opening brace '{'
@@ -74,6 +74,6 @@ public static class BakeHclPatchHelper
         }
 
         // 5) Insert new secret stanza before the closing brace
-        sb.Insert(blockEnd, "\n" + SECRET_SNIPPET);
+        sb.Insert(blockEnd, SECRET_SNIPPET);
     }
 }
