@@ -6,7 +6,9 @@ using OrasProject.Oras.Registry;
 using OrasProject.Oras.Registry.Remote;
 using OrasProject.Oras.Registry.Remote.Auth;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -126,7 +128,8 @@ public static class OrasClient
         }
         catch (ResponseException e)
         {
-            Console.WriteLine($"Error pulling image: {e.HttpRequestError}");
+            var errors = e.Errors?.Select(x => $"{x.Code}: {x.Message}") ?? new List<string>();
+            Console.WriteLine($"Error pulling image: {e.RequestUri} {string.Join(",", errors)}");
             throw;
         }
     }
