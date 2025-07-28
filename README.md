@@ -1,9 +1,9 @@
 # `buildcharts`
 
-[![dotnet tool](https://img.shields.io/nuget/v/dotnet-buildcharts?color=brightgreen&label=dotnet-krp&logo=dotnet&logoColor=white)](https://www.nuget.org/packages/dotnet-krp)
-[![docker](https://img.shields.io/docker/v/buildcharts/buildcharts?color=brightgreen&label=docker&logo=docker&logoColor=white)](https://hub.docker.com/r/eddietisma/krp)
+[![dotnet tool](https://img.shields.io/nuget/v/dotnet-buildcharts?color=brightgreen&label=dotnet-buildcharts&logo=dotnet&logoColor=white)](https://www.nuget.org/packages/dotnet-buildcharts)
+[![docker](https://img.shields.io/docker/v/buildcharts/buildcharts?color=brightgreen&label=docker&logo=docker&logoColor=white)](https://hub.docker.com/r/buildcharts/buildcharts)
 
-`buildcharts` is a framework for defining and generating CI/CD pipelines using declarative metadata (`build.yml`) and templated pipeline definitions stored as OCI artifacts (similar to Helm charts). It enables scalable, centralized, and consistent build processes.
+`buildcharts` is a framework for defining and generating CI/CD pipelines using declarative metadata (`build.yml`) and templated pipeline definitions stored as OCI artifacts (similar to Helm charts). Enabling scalable, centralized, and consistent build processes.
 
 ### Features
 - **Scaling**: Handle 100+ microservices with shared pipeline logic.
@@ -129,7 +129,7 @@ jobs:
 ### Results
 - Running `buildcharts generate` inspects build metadata in `build.yml` and produces a Docker Bake configuration file: `buildcharts.hcl`.
   - Each entry with `type: docker` is resolved using the chart identified by `alias: docker`.
-  - Dockerfiles defined within each chart are inlined directly into the generated Bake configuration.
+  - Dockerfiles defined within each chart are referenced directly in the generated Bake configuration.
 - Execute the build using `docker buildx bake`.
   - Builds run inside Docker, ensuring isolated and reproducible environments.
   - Uses **high-level builds** with [Buildx Bake](https://docs.docker.com/build/bake/) configurations using BuildKit from the [Moby project](https://github.com/moby/moby).
