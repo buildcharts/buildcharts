@@ -20,7 +20,7 @@ environment:
 ### `targets`
 Mapping of project or solution files to one or more target definitions. The key is the path to a `.sln` or `.csproj` file. Each value defines the build targets for that source.
 
-A target can be specified in two ways:
+A target can be specified in different ways:
 
 1. **Single entry**
 
@@ -42,8 +42,17 @@ src/Project/Project.csproj:
       tags: ["docker.io/username/project:${VERSION}-${COMMIT}"]
 ```
 
+3. **Shorthand array of types**
+
+```yaml
+src/Project/Project.csproj:
+  type: [nuget, test]
+```
+
+This is equivalent to the list of entries syntax and will be normalized internally.
+
 #### Target properties
-- `type` – The build chart alias to use. Common values include `build`, `test`, `nuget`, and `docker`.
+- `type` – The build chart alias to use. Common values include `build`, `test`, `nuget`, and `docker`. 
 - `with` – Optional dictionary passed through to the chart templates. Typical keys are `base` for the base Docker image and `tags` for Docker image tags.
 
 ## Example
