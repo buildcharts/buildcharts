@@ -1,6 +1,6 @@
 # Plugin system
 
-Plugins hook into the `buildcharts` generation pipeline to run custom logic before and/or after the build configuration is produced.  They are an extensibility point for tasks uch as injecting environment secrets, generating additional output files or performing validation.
+Plugins hook into the `buildcharts` generation pipeline to run custom logic before and/or after the build configuration is produced.  They are an extensibility point for tasks such as injecting environment secrets, generating additional output files or performing validation.
 
 ## Using plugins in `build.yml`
 
@@ -53,4 +53,5 @@ targets:
 ```
 
 With this configuration in place, running `buildcharts generate` will automatically inject the necessary secrets and modifications so that dotnet restore and NuGet push operations can authenticate against Azure Artifacts feeds.
+
 
