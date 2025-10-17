@@ -148,9 +148,9 @@ public class DockerHclGenerator
                 }
 
                 var dockerfileContent = await File.ReadAllTextAsync(dockerfilePath);
-                sb.AppendLine("  dockerfile-inline = <<BUILDCHARTS_EOF");
+                sb.AppendLine("  dockerfile-inline = <<EOF");
                 sb.AppendLine(dockerfileContent.TrimEnd());
-                sb.AppendLine("BUILDCHARTS_EOF");
+                sb.AppendLine("EOF");
             }
             else
             {
@@ -171,7 +171,7 @@ public class DockerHclGenerator
         }
         
         sb.AppendLine("  }");
-        sb.AppendLine("  dockerfile-inline = <<BUILDCHARTS_EOF");
+        sb.AppendLine("  dockerfile-inline = <<EOF");
         sb.AppendLine("FROM scratch AS output");
 
         foreach (var target in typedTargets.Where(x => x.Type is not "docker" and not "build"))
@@ -179,7 +179,7 @@ public class DockerHclGenerator
             sb.AppendLine($"COPY --link --from={target.Name} /output /{target.Type}");
         }
         
-        sb.AppendLine("BUILDCHARTS_EOF");
+        sb.AppendLine("EOF");
         sb.AppendLine("}");
         sb.AppendLine();
 
