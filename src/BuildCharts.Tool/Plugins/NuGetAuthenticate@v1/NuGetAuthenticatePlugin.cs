@@ -91,8 +91,28 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
             WorkingDirectory = Directory.GetCurrentDirectory(),
         }) ?? throw new InvalidOperationException($"Failed to start process: 'dotnet nuget list source --format short'.");
 
+        // Optional: Enforce a timeout so we don't hang forever.
+        if (!process.WaitForExit(10000))
+        {
+            try
+            {
+                process.Kill(true);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error: {ex.Message}");
+            }
+
+            Console.Error.WriteLine("Timed out waiting for 'dotnet nuget list source'");
+        }
+
         var output = process.StandardOutput.ReadToEnd();
-        process.WaitForExit();
+        var error = process.StandardError.ReadToEnd();
+
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            Console.Error.WriteLine($"Error when running 'dotnet nuget list source'. Error: {error}");
+        }
 
         var lines = output.Split('\r', StringSplitOptions.RemoveEmptyEntries);
 
