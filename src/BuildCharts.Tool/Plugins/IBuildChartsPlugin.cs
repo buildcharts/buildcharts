@@ -8,6 +8,6 @@ namespace BuildCharts.Tool.Plugins;
 public interface IBuildChartsPlugin
 {
     string Name { get; }
-    Task OnBeforeGenerateAsync(BuildConfig buildConfig, CancellationToken cancellationToken);
-    Task OnAfterGenerateAsync(BuildConfig buildConfig, ChartConfig cartConfig, StringBuilder hclStringBuilder, CancellationToken cancellationToken);
+    Task OnBeforeGenerateAsync(BuildConfig buildConfig, CancellationToken ct);
+    Task OnAfterGenerateAsync(BuildConfig buildConfig, ChartConfig cartConfig, StringBuilder hclStringBuilder, CancellationToken ct);
 }

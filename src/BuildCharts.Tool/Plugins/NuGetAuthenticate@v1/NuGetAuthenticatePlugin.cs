@@ -25,16 +25,16 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
     public string Name { get; set; } = "NuGetAuthenticate@v1";
     public string[] FilterDomains { get; set; } = ["pkgs.dev.azure.com", "pkgs.visualstudio.com"];
 
-    public async Task OnBeforeGenerateAsync(BuildConfig buildConfig, CancellationToken cancellationToken)
+    public async Task OnBeforeGenerateAsync(BuildConfig buildConfig, CancellationToken ct)
     {
         try
         {
             Console.WriteLine($"\u001b[2mRunning plugin: {Name}\u001b[22m");
 
-            var sources = GetNuGetSources();
+            var sources = await GetNuGetSources(ct);
             if (!sources.Any())
             {
-                Console.WriteLine("No Azure DevOps package sources found in NuGet.Config.");
+                Console.WriteLine("No Azure DevOps package sources found in nuget config");
                 return;
             }
 
@@ -45,9 +45,9 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
             
             // Ensure the credential provider is downloaded.
             var targetFolder = Path.Combine(Directory.GetCurrentDirectory(), ".buildcharts", "plugins", Name, "microsoft-artifacts-credprovider");
-            await MicrosoftCredentialProviderHelper.EnsureInstalledAsync(targetFolder, cancellationToken);
+            await MicrosoftCredentialProviderHelper.EnsureInstalledAsync(targetFolder, ct);
 
-            var token = await MicrosoftCredentialProviderHelper.FetchCredentialsAsync(targetFolder, sources.FirstOrDefault(), cancellationToken);
+            var token = await MicrosoftCredentialProviderHelper.FetchCredentialsAsync(targetFolder, sources.FirstOrDefault(), ct);
 
             // Generate the feed-endpoints JSON used by the credential provider bundled in SDK docker image.
             var endpointCredentials = sources.Select(src => new
@@ -71,13 +71,13 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
         }
     }
 
-    public Task OnAfterGenerateAsync(BuildConfig buildConfig, ChartConfig cartConfig, StringBuilder hclStringBuilder, CancellationToken cancellationToken)
+    public Task OnAfterGenerateAsync(BuildConfig buildConfig, ChartConfig cartConfig, StringBuilder hclStringBuilder, CancellationToken ct)
     {
         BakeHclPatchHelper.AddSecretsToBuildTarget(hclStringBuilder);
         return Task.CompletedTask;
     }
     
-    private List<Uri> GetNuGetSources()
+    private async Task<List<Uri>> GetNuGetSources(CancellationToken ct)
     {
         var result = new List<Uri>();
 
@@ -91,30 +91,18 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
             WorkingDirectory = Directory.GetCurrentDirectory(),
         }) ?? throw new InvalidOperationException($"Failed to start process: 'dotnet nuget list source --format short'.");
 
-        // Optional: Enforce a timeout so we don't hang forever.
-        if (!process.WaitForExit(10000))
-        {
-            try
-            {
-                process.Kill(true);
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"Error: {ex.Message}");
-            }
+        var output = await process.StandardOutput.ReadToEndAsync(ct);
+        var error = await process.StandardError.ReadToEndAsync(ct);
 
-            Console.Error.WriteLine("Timed out waiting for 'dotnet nuget list source'");
-        }
-
-        var output = process.StandardOutput.ReadToEnd();
-        var error = process.StandardError.ReadToEnd();
-
+        await process.WaitForExitAsync(ct);
+        
         if (!string.IsNullOrWhiteSpace(error))
         {
-            Console.Error.WriteLine($"Error when running 'dotnet nuget list source'. Error: {error}");
+            await Console.Error.WriteLineAsync($"Error when running 'dotnet nuget list source'. Error: {error}");
         }
 
-        var lines = output.Split('\r', StringSplitOptions.RemoveEmptyEntries);
+        // Split output into lines in a cross-platform way (handles \n and \r\n)
+        var lines = output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
 
         foreach (var line in lines.Select(l => l.Trim()))
         {
@@ -144,7 +132,7 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
 
     private static void WriteValueToFile(string key, string value)
     {
-        var folder = Path.Combine(Directory.GetCurrentDirectory(), ".buildcharts\\secrets");
+        var folder = Path.Combine(Directory.GetCurrentDirectory(), ".buildcharts", "secrets");
         var filePath = Path.Combine(folder, key);
 
         Directory.CreateDirectory(folder);
