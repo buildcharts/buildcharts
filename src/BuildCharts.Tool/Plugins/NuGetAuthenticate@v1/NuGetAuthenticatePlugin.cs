@@ -57,10 +57,7 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
                 password = token,
             });
 
-            var feedEndpoints = JsonSerializer.Serialize(new
-            {
-                endpointCredentials,
-            });
+            var feedEndpoints = JsonSerializer.Serialize(new { endpointCredentials }, new JsonSerializerOptions { WriteIndented = true });
 
             WriteValueToFile("VSS_NUGET_EXTERNAL_FEED_ENDPOINTS", feedEndpoints);
             WriteValueToFile("VSS_NUGET_ACCESSTOKEN", token);
