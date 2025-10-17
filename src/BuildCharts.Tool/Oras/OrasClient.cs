@@ -5,6 +5,7 @@ using OrasProject.Oras.Oci;
 using OrasProject.Oras.Registry;
 using OrasProject.Oras.Registry.Remote;
 using OrasProject.Oras.Registry.Remote.Auth;
+using OrasProject.Oras.Registry.Remote.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.IO;
