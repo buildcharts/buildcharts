@@ -27,6 +27,7 @@ public class SummaryCommand
             Console.WriteLine("");
             Console.WriteLine("✅ Generated files:");
             Console.WriteLine("   • \u001b[2mSUMMARY.md\u001b[22m");
+            Console.WriteLine("");
 
             return 0;
         }

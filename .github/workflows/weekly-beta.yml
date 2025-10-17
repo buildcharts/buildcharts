@@ -45,15 +45,15 @@ jobs:
       version: ${{ needs.prebuild.outputs.version }}
       commit: ${{ needs.prebuild.outputs.commit }}
 
-  # publish-nuget:
-  #   needs: [prebuild, build]
-  #   uses: ./.github/workflows/publish-nuget.yml
-  #   secrets: inherit
+  publish-nuget:
+    needs: [prebuild, build]
+    uses: ./.github/workflows/publish-nuget.yml
+    secrets: inherit
 
-  # publish-docker:
-  #   needs: [prebuild, build]
-  #   uses: ./.github/workflows/publish-docker.yml
-  #   with:
-  #     version: ${{ needs.prebuild.outputs.version }}
-  #     commit:  ${{ needs.prebuild.outputs.commit }}
-  #   secrets: inherit
+  publish-docker:
+    needs: [prebuild, build]
+    uses: ./.github/workflows/publish-docker.yml
+    with:
+      version: ${{ needs.prebuild.outputs.version }}
+      commit: ${{ needs.prebuild.outputs.commit }}
+    secrets: inherit
