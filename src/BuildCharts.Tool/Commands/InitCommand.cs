@@ -62,7 +62,7 @@ public class InitCommand
             Console.WriteLine("💡 Tips:");
             Console.WriteLine($"   • Run {Highlight("buildcharts update")} to auto-sync chart dependencies");
             Console.WriteLine($"   • Customize default base images and tags in {Highlight("charts/buildcharts/Chart.yaml")}");
-            Console.WriteLine();
+            Console.WriteLine("");
 
             // TODO: Add .buildcharts to .gitignore
             // TODO: Add .buildcharts to .dockerignore
