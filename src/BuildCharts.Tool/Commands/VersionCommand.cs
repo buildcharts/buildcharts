@@ -29,6 +29,7 @@ public class VersionCommand
             Console.WriteLine($" built:         {buildDate}");
             Console.WriteLine($" os/arch:       {os}/{arch}");
             Console.WriteLine($" .NET version:  {dotnetVersion}");
+            Console.WriteLine("");
 
             return 0;
         }
