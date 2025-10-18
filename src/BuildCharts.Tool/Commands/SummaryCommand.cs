@@ -1,8 +1,10 @@
 ﻿using BuildCharts.Tool.Configuration;
+using BuildCharts.Tool.Docker;
 using BuildCharts.Tool.Summary;
 using McMaster.Extensions.CommandLineUtils;
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -20,14 +22,33 @@ public class SummaryCommand
             var (buildYaml, buildConfig) = await ConfigurationManager.ReadBuildConfigAsync(ct);
             var (chartYaml, chartConfig) = await ConfigurationManager.ReadChartConfigAsync(ct);
 
-            var summaryStringBuilder = await _summaryGenerator.GenerateAsync(buildConfig, buildYaml, chartConfig, chartYaml, ct);
+            var history = await DockerClient.FetchLatestBuildxHistory(ct);
+            if (history.Count == 0)
+            {
+                throw new InvalidOperationException("Unable to find docker build history. Run a build before generating the summary.");
+            }
             
-            await File.WriteAllTextAsync(Path.Join(".buildcharts", "output", "SUMMARY.md"), summaryStringBuilder.ToString(), ct);
+            var exportPathDockerBuild = Path.Join(".buildcharts", "output", "buildcharts.dockerbuild");
+            var exportPathSummary = Path.Join(".buildcharts", "output", "SUMMARY.md");
+            
+            await DockerClient.ExportBuildHistoryAsync(exportPathDockerBuild, history.Select(x => x.BuildId), ct);
+
+            var summaryStringBuilder = await _summaryGenerator.GenerateAsync(buildConfig, buildYaml, chartConfig, chartYaml, history, ct);
+            await File.WriteAllTextAsync(exportPathSummary, summaryStringBuilder.ToString(), ct);
 
             Console.WriteLine("");
             Console.WriteLine("✅ Generated files:");
             Console.WriteLine("   • \u001b[2mSUMMARY.md\u001b[22m");
+            Console.WriteLine("   • \u001b[2mbuildcharts.dockerbuild\u001b[22m");
             Console.WriteLine("");
+            
+            var isAzure = string.Equals(Environment.GetEnvironmentVariable("TF_BUILD"), "true", StringComparison.OrdinalIgnoreCase);
+            if (isAzure)
+            {
+                Console.WriteLine($"##vso[artifact.upload artifactname=buildcharts;]{Path.GetFullPath(exportPathDockerBuild)}");
+                Console.WriteLine($"##vso[artifact.upload artifactname=buildcharts;]{Path.GetFullPath(exportPathSummary)}");
+                Console.WriteLine($"##vso[task.uploadsummary]{Path.GetFullPath(exportPathSummary)}");
+            }
 
             return 0;
         }
