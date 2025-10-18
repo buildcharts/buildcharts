@@ -56,10 +56,10 @@ public class SummaryGenerator
 
             if (argSource != null && argType != null)
             {
-                name = $"<code>{argType.Value}</code> {argSource.Value}";
+                name = $"`{argType.Value}` {argSource.Value}";
             }
 
-            sb.AppendLine($"| <code>{buildId[..7].ToUpper()}</code> | <b>{name}</b> | {status} | {Math.Round(cacheRatio * 100, 0)}% | {duration:0.0}s |");
+            sb.AppendLine($"| `{buildId[..7].ToUpper()}` | <b>{name}</b> | {status} | {Math.Round(cacheRatio * 100, 0)}% | {duration:0.0}s |");
 
         }
 
