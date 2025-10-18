@@ -22,7 +22,7 @@ public class SummaryCommand
 
             var summaryStringBuilder = await _summaryGenerator.GenerateAsync(buildConfig, buildYaml, chartConfig, chartYaml, ct);
             
-            await File.WriteAllTextAsync("SUMMARY.md", summaryStringBuilder.ToString(), ct);
+            await File.WriteAllTextAsync(Path.Join(".buildcharts", "output", "SUMMARY.md"), summaryStringBuilder.ToString(), ct);
 
             Console.WriteLine("");
             Console.WriteLine("✅ Generated files:");
