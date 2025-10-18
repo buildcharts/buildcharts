@@ -29,6 +29,7 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
     {
         try
         {
+            Console.WriteLine("");
             Console.WriteLine($"\u001b[2mRunning plugin: {Name}\u001b[22m");
 
             var sources = await GetNuGetSources(ct);
@@ -42,25 +43,59 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
             {
                 Console.WriteLine($"Found feed for {source}");
             }
-            
-            // Ensure the credential provider is downloaded.
-            var targetFolder = Path.Combine(Directory.GetCurrentDirectory(), ".buildcharts", "plugins", Name, "microsoft-artifacts-credprovider");
-            await MicrosoftCredentialProviderHelper.EnsureInstalledAsync(targetFolder, ct);
 
-            var token = await MicrosoftCredentialProviderHelper.FetchCredentialsAsync(targetFolder, sources.FirstOrDefault(), ct);
+            // Prefer environment-supplied credentials (non-interactive in CI) to avoid device flow.
+            var endpointsEnv = Environment.GetEnvironmentVariable("VSS_NUGET_EXTERNAL_FEED_ENDPOINTS");
+            var tokenEnv = Environment.GetEnvironmentVariable("VSS_NUGET_ACCESSTOKEN") ?? Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN") ?? Environment.GetEnvironmentVariable("AZURE_ARTIFACTS_ENV_ACCESS_TOKEN");
 
-            // Generate the feed-endpoints JSON used by the credential provider bundled in SDK docker image.
-            var endpointCredentials = sources.Select(src => new
+            if (!string.IsNullOrWhiteSpace(endpointsEnv))
             {
-                endpoint = src,
-                username = "docker",
-                password = token,
-            });
+                Console.WriteLine("Using VSS_NUGET_EXTERNAL_FEED_ENDPOINTS from environment");
 
-            var feedEndpoints = JsonSerializer.Serialize(new { endpointCredentials }, new JsonSerializerOptions { WriteIndented = true });
+                WriteValueToFile("VSS_NUGET_EXTERNAL_FEED_ENDPOINTS", endpointsEnv);
 
-            WriteValueToFile("VSS_NUGET_EXTERNAL_FEED_ENDPOINTS", feedEndpoints);
-            WriteValueToFile("VSS_NUGET_ACCESSTOKEN", token);
+                if (!string.IsNullOrWhiteSpace(tokenEnv))
+                {
+                    WriteValueToFile("VSS_NUGET_ACCESSTOKEN", tokenEnv);
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(tokenEnv))
+            {
+                Console.WriteLine("Using VSS_NUGET_ACCESSTOKEN/SYSTEM_ACCESSTOKEN from environment");
+
+                var endpointCredentialsFromEnv = sources.Select(src => new
+                {
+                    endpoint = src,
+                    username = "docker",
+                    password = tokenEnv,
+                });
+
+                var feedEndpointsFromEnv = JsonSerializer.Serialize(new { endpointCredentials = endpointCredentialsFromEnv }, new JsonSerializerOptions { WriteIndented = true });
+
+                WriteValueToFile("VSS_NUGET_EXTERNAL_FEED_ENDPOINTS", feedEndpointsFromEnv);
+                WriteValueToFile("VSS_NUGET_ACCESSTOKEN", tokenEnv);
+            }
+            else
+            {
+                // As a last resort, ensure the credential provider is downloaded and fetch token
+                var targetFolder = Path.Combine(Directory.GetCurrentDirectory(), ".buildcharts", "plugins", Name, "microsoft-artifacts-credprovider");
+                await MicrosoftCredentialProviderHelper.EnsureInstalledAsync(targetFolder, ct);
+
+                var token = await MicrosoftCredentialProviderHelper.FetchCredentialsAsync(targetFolder, sources.FirstOrDefault(), ct);
+
+                // Generate the feed-endpoints JSON used by the credential provider bundled in SDK docker image.
+                var endpointCredentials = sources.Select(src => new
+                {
+                    endpoint = src,
+                    username = "docker",
+                    password = token,
+                });
+
+                var feedEndpoints = JsonSerializer.Serialize(new { endpointCredentials }, new JsonSerializerOptions { WriteIndented = true });
+
+                WriteValueToFile("VSS_NUGET_EXTERNAL_FEED_ENDPOINTS", feedEndpoints);
+                WriteValueToFile("VSS_NUGET_ACCESSTOKEN", token);
+            }
 
             Console.WriteLine($"\u001b[2mPlugin complete: {Name}\u001b[22m");
         }
@@ -76,7 +111,7 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
         BakeHclPatchHelper.AddSecretsToBuildTarget(hclStringBuilder);
         return Task.CompletedTask;
     }
-    
+
     private async Task<List<Uri>> GetNuGetSources(CancellationToken ct)
     {
         var result = new List<Uri>();
@@ -95,7 +130,7 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
         var error = await process.StandardError.ReadToEndAsync(ct);
 
         await process.WaitForExitAsync(ct);
-        
+
         if (!string.IsNullOrWhiteSpace(error))
         {
             await Console.Error.WriteLineAsync($"Error when running 'dotnet nuget list source'. Error: {error}");
