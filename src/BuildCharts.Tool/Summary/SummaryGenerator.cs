@@ -17,12 +17,10 @@ namespace BuildCharts.Tool.Summary;
 /// </summary>
 public class SummaryGenerator
 {
-    public async Task<StringBuilder> GenerateAsync(BuildConfig buildConfig, string buildYaml, ChartConfig chartConfig, string chartYaml, CancellationToken ct)
+    public async Task<StringBuilder> GenerateAsync(BuildConfig buildConfig, string buildYaml, ChartConfig chartConfig, string chartYaml, List<BuildxHistoryRecord> history, CancellationToken ct)
     {
         var sb = new StringBuilder();
-
-        var history = await FetchLatestBuildxHistory(ct);
-
+        
         var buildInfo = history.First().Inspect;
         var repository = buildInfo.VCSRepository.Replace(".git", "");
         var revision = buildInfo.VCSRevision;
@@ -189,7 +187,7 @@ public class SummaryGenerator
         sb.AppendLine("  </tbody>");
         sb.AppendLine("<table>");
 
-        return sb;
+        return await Task.FromResult(sb);
     }
 
     private static (bool, string) VertexHasDetails(Vertex vertex, List<string> logs)
@@ -223,62 +221,4 @@ public class SummaryGenerator
 
         return (result, sb.ToString());
     }
-
-    private static async Task<List<BuildxHistoryRecord>> FetchLatestBuildxHistory(CancellationToken ct)
-    {
-        var result = new List<BuildxHistoryRecord>();
-
-        var latestInspect = await DockerClient.InspectBuildAsync(null, ct);
-        var latestContextId = latestInspect.Config.RestRaw["local-sessionid:context"];
-
-        Console.WriteLine($"Generating summary for build: {latestInspect.Ref[..7]} ({latestInspect.Name})");
-
-        var records = await DockerClient.GetBuildHistoryAsync(ct);
-
-        var parallelOptions = new ParallelOptions
-        {
-            MaxDegreeOfParallelism = Environment.ProcessorCount,
-            CancellationToken = ct,
-        };
-
-        await Parallel.ForEachAsync(records, parallelOptions, async (record, cancellationToken) =>
-        {
-            var buildId = record.Ref[(record.Ref.LastIndexOf('/') + 1)..];
-            var inspect = await DockerClient.InspectBuildAsync(buildId, cancellationToken);
-
-            if (!inspect.Config.RestRaw.TryGetValue("local-sessionid:context", out var contextId) || contextId != latestContextId)
-            {
-                return;
-            }
-
-            Console.WriteLine($"- {buildId[..7].ToUpper()} {inspect.Name} {inspect.Duration / 1_000_000_000d:0.0}s");
-
-            var logsRawTask = DockerClient.GetBuildLogRawAsync(buildId, cancellationToken);
-            var logsTextErr = DockerClient.GetBuildLogTextAsync(buildId, cancellationToken);
-
-            await Task.WhenAll(logsRawTask, logsTextErr);
-
-            var logsRaw = await logsRawTask;
-            var logsText = await logsTextErr;
-
-            var unique = logsRaw.Vertexes
-                .GroupBy(v => v.Digest)
-                .Select(g => g.Where(x => x.Completed != null).OrderBy(v => v.Completed).First())
-                //.Select(g => g.OrderBy(x => x.Completed).First(x => x.Completed != null))
-                .OrderBy(x => x.Completed)
-                .ToList();
-
-            logsRaw.Vertexes = unique;
-
-            var logs = logsText.Split("\n").Select(x => x.TrimEnd()).ToList();
-
-            result.Add(new BuildxHistoryRecord(buildId, record, inspect, logsRaw, logs));
-        });
-
-        //result.ForEach(x => x.Inspect.Config = null);
-        //var x = JsonSerializer.Serialize(result);
-        return result.OrderBy(x => x.Inspect.BuildArgs.FirstOrDefault(y => y.Name == "BUILDCHARTS_SRC")?.Value).ToList();
-    }
-
-    public record BuildxHistoryRecord(string BuildId, BuildxHistory History, BuildxInspect Inspect, BuildxLog Log, List<string> Logs);
 }

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -9,8 +10,66 @@ using System.Threading.Tasks;
 
 namespace BuildCharts.Tool.Docker;
 
+public record BuildxHistoryRecord(string BuildId, BuildxHistory History, BuildxInspect Inspect, BuildxLog Log, List<string> Logs);
+
 public static class DockerClient
 {
+    public static async Task<List<BuildxHistoryRecord>> FetchLatestBuildxHistory(CancellationToken ct)
+    {
+        var result = new List<BuildxHistoryRecord>();
+
+        var latestInspect = await InspectBuildAsync(null, ct);
+        var latestContextId = latestInspect.Config.RestRaw["local-sessionid:context"];
+
+        Console.WriteLine($"Generating summary for build: {latestInspect.Ref[..7]} ({latestInspect.Name})");
+
+        var records = await GetBuildHistoryAsync(ct);
+
+        var parallelOptions = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Environment.ProcessorCount,
+            CancellationToken = ct,
+        };
+
+        await Parallel.ForEachAsync(records, parallelOptions, async (record, cancellationToken) =>
+        {
+            var buildId = record.Ref[(record.Ref.LastIndexOf('/') + 1)..];
+            var inspect = await InspectBuildAsync(buildId, cancellationToken);
+
+            if (!inspect.Config.RestRaw.TryGetValue("local-sessionid:context", out var contextId) || contextId != latestContextId)
+            {
+                return;
+            }
+
+            Console.WriteLine($"- {buildId[..7].ToUpper()} {inspect.Name} {inspect.Duration / 1_000_000_000d:0.0}s");
+
+            var logsRawTask = GetBuildLogRawAsync(buildId, cancellationToken);
+            var logsTextErr = GetBuildLogTextAsync(buildId, cancellationToken);
+
+            await Task.WhenAll(logsRawTask, logsTextErr);
+
+            var logsRaw = await logsRawTask;
+            var logsText = await logsTextErr;
+
+            var unique = logsRaw.Vertexes
+                .GroupBy(v => v.Digest)
+                .Select(g => g.Where(x => x.Completed != null).OrderBy(v => v.Completed).First())
+                //.Select(g => g.OrderBy(x => x.Completed).First(x => x.Completed != null))
+                .OrderBy(x => x.Completed)
+                .ToList();
+
+            logsRaw.Vertexes = unique;
+
+            var logs = logsText.Split("\n").Select(x => x.TrimEnd()).ToList();
+
+            result.Add(new BuildxHistoryRecord(buildId, record, inspect, logsRaw, logs));
+        });
+
+        //result.ForEach(x => x.Inspect.Config = null);
+        //var x = JsonSerializer.Serialize(result);
+        return result.OrderBy(x => x.Inspect.BuildArgs.FirstOrDefault(y => y.Name == "BUILDCHARTS_SRC")?.Value).ToList();
+    }
+
     /// <summary>
     /// buildx history ls --format json
     /// </summary>
@@ -65,6 +124,36 @@ public static class DockerClient
         var (_, errOut) = await RunAsync("docker", $"buildx history logs {buildId}", ct);
         return errOut;
     }
+
+    /// <summary>
+    /// docker buildx history export --finalize -o {outputPath} {buildIds...}
+    /// </summary>
+    /// <param name="outputPath">Destination file path.</param>
+    /// <param name="buildIds">One or more build identifiers to export.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public static async Task ExportBuildHistoryAsync(string outputPath, IEnumerable<string> buildIds, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+        ArgumentNullException.ThrowIfNull(buildIds);
+
+        var ids = buildIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            throw new ArgumentException("At least one build ID is required to export history.", nameof(buildIds));
+        }
+
+        var directory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        var fullOutputPath = Path.GetFullPath(outputPath);
+        var idsArg = string.Join(' ', ids);
+
+        await RunAsync("docker", $"buildx history export --finalize -o \"{fullOutputPath}\" {idsArg}", ct);
+    }
+
 
     private static async Task<(string, string)> RunAsync(string file, string args, CancellationToken ct)
     {
