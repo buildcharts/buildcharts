@@ -33,7 +33,7 @@ jobs:
         uses: docker/bake-action@v4
         with:
           source: .
-          files: ./buildcharts.hcl
+          files: .buildcharts/docker-bake.hcl
 ```
 
 ## Enable caching
@@ -44,7 +44,7 @@ Use Docker cache storage backend [GitHub Actions cache (gha)](https://docs.docke
 - name: Docker build and test
   uses: docker/bake-action@v6
   with:
-    files: ./buildcharts.hcl
+    files: .buildcharts/docker-bake.hcl
     set: |
       _common.cache-from=type=gha,scope=buildcharts
       _common.cache-to=type=gha,scope=buildcharts,mode=max

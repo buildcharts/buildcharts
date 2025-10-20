@@ -36,7 +36,7 @@ jobs:
       #   with:
       #     targets: build
       #     source: .
-      #     files: buildcharts.hcl
+      #     files: .buildcharts/docker-build.hcl
       #     # set: |
       #     #   _common.cache-from=type=gha,scope=buildcharts
       #     #   _common.cache-to=type=gha,scope=buildcharts,mode=max
@@ -48,7 +48,7 @@ jobs:
         uses: docker/bake-action@v6
         with:
           source: .
-          files: buildcharts.hcl
+          files: .buildcharts/docker-bake.hcl
           # set: |
           #   _common.cache-from=type=gha,scope=buildcharts
           #   _common.cache-to=type=gha,scope=buildcharts,mode=max

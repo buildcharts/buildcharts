@@ -78,7 +78,7 @@ Pulled: registry-1.docker.io/buildcharts/dotnet-nuget:0.0.1 (582 bytes)
 Digest: sha256:6b6b99dd94c8b9f388890770fc3f1249c07561c9347d9eb98802c3bf44fbf47a
 
 ✅ Generated files:
-   • buildcharts.hcl
+   • docker-bake.hcl
 ```
 
 ### `buildcharts update`
