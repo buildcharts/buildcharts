@@ -78,4 +78,4 @@ targets:
         tags: ["docker.io/buildcharts/buildcharts:${VERSION}-${COMMIT}"]
 ```
 
-Use `buildcharts generate` to produce `buildcharts.hcl` based on this metadata.
+Use `buildcharts generate` to produce `docker-bake.hcl` based on this metadata.

@@ -42,11 +42,11 @@ public class GenerateCommand
             var onAfterGeneratePluginTasks = plugins.Select(x => x.OnAfterGenerateAsync(buildConfig, chartConfig, hclStringBuilder, ct));
             await Task.WhenAll(onAfterGeneratePluginTasks);
             
-            await File.WriteAllTextAsync("buildcharts.hcl", hclStringBuilder.ToString(), ct);
+            await File.WriteAllTextAsync(Path.Join(".buildcharts", "docker-bake.hcl"), hclStringBuilder.ToString(), ct);
 
             Console.WriteLine("");
             Console.WriteLine("✅ Generated files:");
-            Console.WriteLine("   • \u001b[2mbuildcharts.hcl\u001b[22m");
+            Console.WriteLine("   • \u001b[2mdocker-bake.hcl\u001b[22m");
             Console.WriteLine("");
 
             return 0;

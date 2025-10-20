@@ -34,7 +34,7 @@ public static class GitHub
                                   - name: Docker build and test
                                     uses: docker/bake-action@v6
                                     with:
-                                      files: buildcharts.hcl
+                                      files: .buildcharts/docker-bake.hcl
                                     env:
                                       VERSION: ${{ github.ref_name }}
                                       COMMIT: ${{ github.sha }}

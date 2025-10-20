@@ -64,7 +64,7 @@ Digest: sha256:f8fa3e928f25cc651f541a408222978941cde466beaaae7e60be6b5b1ca02ff9
 
 ### `buildcharts generate`
 
-Generates build pipeline using metadata. Outputs a Docker bake file `buildcharts.hcl`.
+Generates build pipeline using metadata. Outputs a Docker bake file `.buildcharts/docker-bake.hcl`.
 
 ```console
 # buildcharts generate
@@ -79,14 +79,14 @@ Pulled: registry-1.docker.io/buildcharts/dotnet-nuget:0.0.1 (582 bytes)
 Digest: sha256:6b6b99dd94c8b9f388890770fc3f1249c07561c9347d9eb98802c3bf44fbf47a
 
 ✅ Generated files:
-   • buildcharts.hcl
+   • docker-bake.hcl
 ```
 
 ### `buildcharts run`
 
-Triggers docker buildx bake on the generated `buildcharts.hcl`.
+Triggers docker buildx bake on the generated `docker-bake.hcl`.
 
- - `$env:VERSION="1.2.3"; $env:COMMIT="abc123"; docker buildx bake`
+ - `$env:VERSION="1.2.3"; $env:COMMIT="abc123"; docker buildx bake --file .buildcharts/docker-bake.hcl`
 
 ### `buildcharts summary`
 

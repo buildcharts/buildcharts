@@ -31,7 +31,7 @@ This plugin configures NuGet tools to authenticate with Azure Artifacts and othe
 4. Writes two secret files under `.buildcharts/secrets`:
    - `VSS_NUGET_EXTERNAL_FEED_ENDPOINTS` – a JSON payload describing the endpoint(s) and associated credentials.
    - `VSS_NUGET_ACCESSTOKEN` – the access token itself.
-5. Patches the generated `buildcharts.hcl` so these secrets are mounted into the Docker build.
+5. Patches the generated `docker-bake.hcl` so these secrets are mounted into the Docker build.
 
 #### Usage
 

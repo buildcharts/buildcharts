@@ -120,14 +120,14 @@ jobs:
         uses: docker/bake-action@v6
         with:
           source: .
-          files: buildcharts.hcl
+          files: .buildcharts/docker-bake.hcl
         env:
           VERSION: ${{ github.ref_name }}
           COMMIT: ${{ github.sha }}
 ```
 
 ### Results
-- Running `buildcharts generate` inspects build metadata in `build.yml` and produces a Docker Bake configuration file: `buildcharts.hcl`.
+- Running `buildcharts generate` inspects build metadata in `build.yml` and produces a Docker Bake configuration file: `docker-bake.hcl`.
   - Each entry with `type: docker` is resolved using the chart identified by `alias: docker`.
   - Dockerfiles defined within each chart are referenced directly in the generated Bake configuration.
 - Execute the build using `docker buildx bake`.
@@ -157,6 +157,7 @@ Templates support:
 - https://docs.docker.com/guides/bake/#exporting-build-artifacts
 - https://github.com/docker/metadata-action?tab=readme-ov-file
 - https://github.com/moby/buildkit/blob/master/.github/workflows/buildkit.yml
+- https://github.com/docker/buildx/issues/1991
 
 ## CLI
 
