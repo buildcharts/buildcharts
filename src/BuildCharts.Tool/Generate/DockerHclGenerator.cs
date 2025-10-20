@@ -96,6 +96,10 @@ public class DockerHclGenerator
                     var tags = tagList.Cast<string>().Select(t => $"\"{t}\"");
                     sb.AppendLine($"        tags = [{string.Join(",", tags)}]");
                 }
+                else
+                {
+                    sb.AppendLine($"        tags = []");
+                }
 
                 // Emit base
                 if (item.def.With.TryGetValue("base", out var baseImage))
@@ -105,7 +109,17 @@ public class DockerHclGenerator
                 else
                 {
                     sb.AppendLine($"        base = \"\"");
+                }
 
+                // Emit allow
+                if (item.def.With.TryGetValue("allow", out var rawAllows) && rawAllows is List<object> allowList)
+                {
+                    var allows = allowList.Cast<string>().Select(t => $"\"{t}\"");
+                    sb.AppendLine($"        allow = [{string.Join(",", allows)}]");
+                }
+                else
+                {
+                    sb.AppendLine($"        allow = []");
                 }
 
                 sb.AppendLine("      },");
@@ -116,14 +130,14 @@ public class DockerHclGenerator
 
             // Emit args
             sb.AppendLine("  args = {");
-            sb.AppendLine("    BUILDCHARTS_SRC  = item.src");
+            sb.AppendLine("    BUILDCHARTS_SRC = item.src");
             sb.AppendLine("    BUILDCHARTS_TYPE = \"" + type + "\"");
             sb.AppendLine("  }");
 
             // Emit tags
             if (type == "docker")
             {
-                sb.AppendLine("  tags =\"${item.tags}\"");
+                sb.AppendLine("  tags = \"${item.tags}\"");
             }
 
             // Emit contexts
@@ -133,11 +147,11 @@ public class DockerHclGenerator
                 sb.AppendLine("    build = \"target:build\"");
             }
             sb.AppendLine("    base = \"${item.base}\"");
-
-            if (type is "docker" or "build")
-            {
-            }
             sb.AppendLine("  }");
+
+            // Emit entitlements
+            sb.AppendLine("  allow = \"${item.allow}\"");
+
 
             if (useInlineDockerFile)
             {

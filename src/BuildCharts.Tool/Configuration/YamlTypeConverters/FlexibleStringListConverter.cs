@@ -43,7 +43,7 @@ public class FlexibleListYamlTypeConverter<T> : IYamlTypeConverter
                     var def = new TargetDefinition
                     {
                         Type = scalar.Value,
-                        With = new Dictionary<string, object>()
+                        With = new Dictionary<string, object>(),
                     };
                     list.Add((T)(object)def);
                 }
