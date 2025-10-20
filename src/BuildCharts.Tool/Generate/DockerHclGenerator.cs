@@ -81,6 +81,7 @@ public class DockerHclGenerator
             // Emit targets in type matrix
             sb.AppendLine("  matrix = {");
             sb.AppendLine("    item = [");
+
             foreach (var item in targetGroup)
             {
                 var targetName = CreateUniqueName(buildConfig, item.Key, type);
@@ -91,35 +92,44 @@ public class DockerHclGenerator
                 sb.AppendLine($"        src  = \"{item.Key}\"");
 
                 // Emit tags
-                if (item.def.With.TryGetValue("tags", out var rawTags) && rawTags is List<object> tagList)
+                if (targetGroup.Any(x => x.def.With.ContainsKey("tags")))
                 {
-                    var tags = tagList.Cast<string>().Select(t => $"\"{t}\"");
-                    sb.AppendLine($"        tags = [{string.Join(",", tags)}]");
-                }
-                else
-                {
-                    sb.AppendLine($"        tags = []");
+                    if (item.def.With.TryGetValue("tags", out var rawTags) && rawTags is List<object> tagList)
+                    {
+                        var tags = tagList.Cast<string>().Select(t => $"\"{t}\"");
+                        sb.AppendLine($"        tags = [{string.Join(",", tags)}]");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"        tags = []");
+                    }
                 }
 
                 // Emit base
-                if (item.def.With.TryGetValue("base", out var baseImage))
+                if (targetGroup.Any(x => x.def.With.ContainsKey("base")))
                 {
-                    sb.AppendLine($"        base = \"docker-image://{baseImage}\"");
-                }
-                else
-                {
-                    sb.AppendLine($"        base = \"\"");
+                    if (item.def.With.TryGetValue("base", out var baseImage))
+                    {
+                        sb.AppendLine($"        base = \"docker-image://{baseImage}\"");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"        base = \"\"");
+                    }
                 }
 
                 // Emit allow
-                if (item.def.With.TryGetValue("allow", out var rawAllows) && rawAllows is List<object> allowList)
+                if (targetGroup.Any(x => x.def.With.ContainsKey("allow")))
                 {
-                    var allows = allowList.Cast<string>().Select(t => $"\"{t}\"");
-                    sb.AppendLine($"        allow = [{string.Join(",", allows)}]");
-                }
-                else
-                {
-                    sb.AppendLine($"        allow = []");
+                    if (item.def.With.TryGetValue("allow", out var rawAllows) && rawAllows is List<object> allowList)
+                    {
+                        var allows = allowList.Cast<string>().Select(t => $"\"{t}\"");
+                        sb.AppendLine($"        allow = [{string.Join(",", allows)}]");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"        allow = []");
+                    }
                 }
 
                 sb.AppendLine("      },");
@@ -135,24 +145,29 @@ public class DockerHclGenerator
             sb.AppendLine("  }");
 
             // Emit tags
-            if (type == "docker")
+            if (targetGroup.Any(x => x.def.With.ContainsKey("tags")))
             {
                 sb.AppendLine("  tags = \"${item.tags}\"");
             }
 
             // Emit contexts
             sb.AppendLine("  contexts = {");
-            if (type != "build")
+            if (type != "build") // Target build cannot link to itself.
             {
                 sb.AppendLine("    build = \"target:build\"");
             }
-            sb.AppendLine("    base = \"${item.base}\"");
+            if (targetGroup.Any(x => x.def.With.ContainsKey("base")))
+            {
+                sb.AppendLine("    base = \"${item.base}\"");
+            }
             sb.AppendLine("  }");
 
             // Emit entitlements
-            sb.AppendLine("  allow = \"${item.allow}\"");
-
-
+            if (targetGroup.Any(x => x.def.With.ContainsKey("allow")))
+            {
+                sb.AppendLine("  allow = \"${item.allow}\"");
+            }
+            
             if (useInlineDockerFile)
             {
                 var dockerfilePath = $".buildcharts/{chartAlias}/Dockerfile";
@@ -195,17 +210,17 @@ public class DockerHclGenerator
         
         sb.AppendLine("EOF");
         sb.AppendLine("}");
-        sb.AppendLine();
 
-        // Emit groups
-        foreach (var typeGroup in typedTargets.GroupBy(x => x.Type))
-        {
-            sb.AppendLine($"group \"{typeGroup.Key}\" {{");
-            sb.AppendLine($"  targets = [");
-            sb.AppendLine($"    {string.Join(",\n    ", typeGroup.Select(x => $"\"{x.Name}\""))}");
-            sb.AppendLine("   ]");
-            sb.AppendLine("}");
-        }
+        //// Emit groups
+        //sb.AppendLine();
+        //foreach (var typeGroup in typedTargets.GroupBy(x => x.Type))
+        //{
+        //    sb.AppendLine($"group \"{typeGroup.Key}\" {{");
+        //    sb.AppendLine($"  targets = [");
+        //    sb.AppendLine($"    {string.Join(",\n    ", typeGroup.Select(x => $"\"{x.Name}\""))}");
+        //    sb.AppendLine("   ]");
+        //    sb.AppendLine("}");
+        //}
 
         sb.AppendLine();
         sb.AppendLine("group \"default\" {");
