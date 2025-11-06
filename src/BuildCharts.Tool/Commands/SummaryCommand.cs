@@ -34,14 +34,9 @@ public class SummaryCommand
             await DockerClient.ExportBuildHistoryAsync(exportPathDockerBuild, history.Select(x => x.BuildId), ct);
 
             var summaryStringBuilder = await _summaryGenerator.GenerateAsync(buildConfig, buildYaml, chartConfig, chartYaml, history, ct);
-            await File.WriteAllTextAsync(exportPathSummary, summaryStringBuilder.ToString(), ct);
+            var summaryContent = summaryStringBuilder.ToString();
+            await File.WriteAllTextAsync(exportPathSummary, summaryContent, ct);
 
-            Console.WriteLine("");
-            Console.WriteLine("✅ Generated files:");
-            Console.WriteLine("   • \u001b[2mSUMMARY.md\u001b[22m");
-            Console.WriteLine("   • \u001b[2mbuildcharts.dockerbuild\u001b[22m");
-            Console.WriteLine("");
-            
             var isAzure = string.Equals(Environment.GetEnvironmentVariable("TF_BUILD"), "true", StringComparison.OrdinalIgnoreCase);
             if (isAzure)
             {
@@ -49,6 +44,18 @@ public class SummaryCommand
                 Console.WriteLine($"##vso[artifact.upload artifactname=buildcharts;]{Path.GetFullPath(exportPathSummary)}");
                 Console.WriteLine($"##vso[task.uploadsummary]{Path.GetFullPath(exportPathSummary)}");
             }
+
+            var isGithub = Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
+            if (!string.IsNullOrWhiteSpace(isGithub))
+            {
+                await File.AppendAllTextAsync(isGithub, summaryContent, ct);
+            }
+
+            Console.WriteLine("");
+            Console.WriteLine("✅ Generated files:");
+            Console.WriteLine("   • \u001b[2mSUMMARY.md\u001b[22m");
+            Console.WriteLine("   • \u001b[2mbuildcharts.dockerbuild\u001b[22m");
+            Console.WriteLine("");
 
             return 0;
         }
