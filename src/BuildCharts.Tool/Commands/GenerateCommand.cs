@@ -23,6 +23,16 @@ public class GenerateCommand
     {
         try
         {
+            if (Directory.Exists(".buildcharts"))
+            {
+                Directory.Delete(".buildcharts", true);
+            }
+
+            if (!File.Exists("Chart.lock"))
+            {
+                await using var file = File.Create("Chart.lock");
+            }
+
             var (_, buildConfig) = await ConfigurationManager.ReadBuildConfigAsync(ct);
             var (_, chartConfig) = await ConfigurationManager.ReadChartConfigAsync(ct);
 
@@ -31,7 +41,7 @@ public class GenerateCommand
             var plugins = PluginManager.LoadPlugins(buildConfig.Plugins);
 
             Console.WriteLine("Pulling charts...");
-            var pullTasks = chartConfig.Dependencies.Select(dependency => OrasClient.Pull($"{dependency.Repository}/{dependency.Name}:{dependency.Version}"));
+            var pullTasks = chartConfig.Dependencies.Select(dependency => OrasClient.Pull($"{dependency.Repository}/{dependency.Name}:{dependency.Version}", ct: ct));
             await Task.WhenAll(pullTasks);
 
             foreach (var plugin in plugins)
