@@ -44,6 +44,7 @@
 		</PackageReference>
 		<PackageReference Include="OrasProject.Oras" />
 		<PackageReference Include="SharpZipLib" />
+		<PackageReference Include="Testcontainers" />
 		<PackageReference Include="YamlDotNet" />
 	</ItemGroup>
 

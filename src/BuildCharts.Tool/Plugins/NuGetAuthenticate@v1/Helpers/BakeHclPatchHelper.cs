@@ -13,58 +13,44 @@ public static class BakeHclPatchHelper
         "  ]\n";
 
     /// <summary>
-    /// Ensures that the secret stanza exists in the <c>target "build"</c> block.
-    /// Modifies the supplied <see cref="StringBuilder"/> in place.
+    /// Ensures the secrets exists inside target "_common":
+    /// Modifies the supplied StringBuilder in place.
     /// </summary>
-    public static void AddSecretsToBuildTarget(StringBuilder sb)
+    public static void Execute(StringBuilder sb)
     {
         if (sb == null)
         {
             throw new ArgumentNullException(nameof(sb));
         }
 
-        // 1) Locate target "build"
-        var start = sb.ToString().IndexOf(TARGET_MARKER, StringComparison.OrdinalIgnoreCase);
-        if (start < 0)
+        // Work with a string snapshot.
+        var text = sb.ToString();
+
+        // 1) Locate target
+        var targetMarkerIndex = text.IndexOf(TARGET_MARKER, StringComparison.OrdinalIgnoreCase);
+        if (targetMarkerIndex < 0)
         {
-            throw new InvalidOperationException("Could not find target \"common\".");
+            throw new InvalidOperationException("Could not find target \"_common\".");
         }
 
         // 2) Locate the opening brace '{'
-        var openBrace = sb.ToString().IndexOf('{', start);
-        if (openBrace < 0)
+        var targetOpenBrace = text.IndexOf('{', targetMarkerIndex);
+        if (targetOpenBrace < 0)
         {
-            throw new InvalidOperationException("Malformed HCL: missing '{' after target \"build\".");
+            throw new InvalidOperationException("Malformed HCL: missing '{' after target \"_common\".");
         }
 
         // 3) Find the matching closing brace '}'
-        var depth = 0;
-        var pos = openBrace;
-
-        for (; pos < sb.Length; pos++)
+        var targetCloseBrace = FindMatchingBrace(text, targetOpenBrace);
+        if (targetCloseBrace < 0)
         {
-            if (sb[pos] == '{')
-            {
-                depth++;
-            }
-            if (sb[pos] == '}')
-            {
-                depth--;
-            }
-            if (depth == 0)
-            {
-                break; // Reached end of build block
-            }
-        }
-        if (depth != 0)
-        {
-            throw new InvalidOperationException("Malformed HCL: unmatched braces in target \"build\".");
+            throw new InvalidOperationException("Malformed HCL: unmatched braces in target \"_common\".");
         }
 
-        var blockStart = openBrace + 1; // text after '{'
-        var blockEnd = pos; // position of '}'
+        var blockStart = targetOpenBrace + 1; // start after '{'
+        var blockEnd = targetCloseBrace;
 
-        // 4) Remove any existing secret stanza
+        // 4) Check for any existing secrets
         var slice = sb.ToString(blockStart, blockEnd - blockStart);
 
         var secretIdx = slice.IndexOf("secret =", StringComparison.OrdinalIgnoreCase);
@@ -73,7 +59,31 @@ public static class BakeHclPatchHelper
             throw new InvalidOperationException("Malformed HCL: Secrets already exists in target \"build\".");
         }
 
-        // 5) Insert new secret stanza before the closing brace
+        // 5) Insert new secrets before the closing brace
         sb.Insert(blockEnd, SECRET_SNIPPET);
+    }
+
+    /// <summary>
+    /// Finds the index of the matching '}' for the '{' at openIdx; returns -1 if not found.
+    /// </summary>
+    private static int FindMatchingBrace(string s, int openIdx)
+    {
+        int depth = 0;
+        for (int i = openIdx; i < s.Length; i++)
+        {
+            if (s[i] == '{')
+            {
+                depth++;
+            }
+            else if (s[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return i;
+                }
+            }
+        }
+        return -1;
     }
 }

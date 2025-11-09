@@ -23,7 +23,7 @@ public class InitCommand
                 return 1;
             }
 
-            var buildConfig = await DotNet.CreateBuildConfig("build.yml", ct);
+            var buildConfig = await BuildCharts.Tool.Init.Generation.DotNet.CreateBuildConfig("build.yml", ct);
             await Helm.CreateChart("charts/buildcharts/Chart.yaml", ct);
 
             var gitProvider = await GitProviderDetector.DetectAsync(ct);

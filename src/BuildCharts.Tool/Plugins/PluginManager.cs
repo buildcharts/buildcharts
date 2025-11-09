@@ -10,6 +10,7 @@ public static class PluginManager
     private static readonly Dictionary<string, Type> _builtIns = new(StringComparer.OrdinalIgnoreCase)
     {
         ["NuGetAuthenticate@v1"] = typeof(NuGetAuthenticatePlugin),
+        ["TestcontainersDinD@v1"] = typeof(TestcontainersDinDPlugin),
     };
 
     public static List<IBuildChartsPlugin> LoadPlugins(IEnumerable<string> entries)
