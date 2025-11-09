@@ -101,14 +101,14 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"NuGetAuthenticate Plugin failed with error: {ex}");
+            Console.Error.WriteLine($"{Name} failed with error: {ex}");
             throw;
         }
     }
 
     public Task OnAfterGenerateAsync(BuildConfig buildConfig, ChartConfig cartConfig, StringBuilder hclStringBuilder, CancellationToken ct)
     {
-        BakeHclPatchHelper.AddSecretsToBuildTarget(hclStringBuilder);
+        BakeHclPatchHelper.Execute(hclStringBuilder);
         return Task.CompletedTask;
     }
 
@@ -173,6 +173,6 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
         Directory.CreateDirectory(folder);
         File.WriteAllText(filePath, value, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
-        Console.WriteLine($"Successfully created secret file '{Path.GetRelativePath(Directory.GetCurrentDirectory(), filePath)}'");
+        Console.WriteLine($"Successfully created file '{Path.GetRelativePath(Directory.GetCurrentDirectory(), filePath)}'");
     }
 }
