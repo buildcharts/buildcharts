@@ -108,9 +108,37 @@ public static class DockerClient
     /// <returns></returns>
     public static async Task<BuildxLog> GetBuildLogRawAsync(string buildId, CancellationToken ct)
     {
+        var result = new BuildxLog();
+
         var (_, errOut) = await RunAsync("docker", $"buildx history logs {buildId} --progress rawjson", ct);
-        var result = JsonSerializer.Deserialize<BuildxLog>(errOut);
-        return result;
+
+        // Handle buildx history sometimes responding with multiple JSON documents.
+        foreach (var line in errOut.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = line.TrimStart();
+            if (!trimmed.StartsWith('{'))
+            {
+                continue;
+            }
+
+            try
+            {
+                var partial = JsonSerializer.Deserialize<BuildxLog>(trimmed);
+                if (partial is null)
+                {
+                    continue;
+                }
+
+                result.Vertexes.AddRange(partial.Vertexes);
+                result.Statuses.AddRange(partial.Statuses);
+            }
+            catch (JsonException ex)
+            {
+                Console.Error.WriteLine($"⚠️  Skipped malformed JSON: {ex.Message}");
+            }
+        }
+
+        return result; 
     }
 
     /// <summary>
