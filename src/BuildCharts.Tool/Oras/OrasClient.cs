@@ -1,4 +1,6 @@
-﻿using BuildCharts.Tool.Docker;
+﻿using BuildCharts.Tool.Configuration;
+using BuildCharts.Tool.Configuration.Models;
+using BuildCharts.Tool.Docker;
 using ICSharpCode.SharpZipLib.GZip;
 using ICSharpCode.SharpZipLib.Tar;
 using OrasProject.Oras.Oci;
@@ -12,50 +14,26 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace BuildCharts.Tool.Oras;
 
 public static class OrasClient
 {
-    public static async Task Pull(string reference, string outputDir = ".buildcharts")
+    private static readonly SemaphoreSlim _semaphore = new (1,1);
+
+    public static async Task Pull(string reference, string outputDir = ".buildcharts", CancellationToken ct = default)
     {
-        var tag = "latest";
-
-        // Strip "oci://" prefix.
-        if (reference.StartsWith("oci://", StringComparison.OrdinalIgnoreCase))
+        if (!ChartReference.TryParse(reference, out var parsedReference))
         {
-            reference = reference.Substring("oci://".Length);
+            throw new ArgumentException("Invalid chart reference");
         }
 
-        // Validate input.
-        var firstSlash = reference.IndexOf('/');
-        if (firstSlash == -1)
-        {
-            throw new ArgumentException("Invalid reference. Use format: oci://registry/repository[:tag]");
-        }
-
-        var tagIndex = reference.LastIndexOf(':');
-        var hasTag = tagIndex > reference.LastIndexOf('/');
-
-        string registry, repo;
-        if (hasTag)
-        {
-            tag = reference[(tagIndex + 1)..];
-            var path = reference[..tagIndex];
-            registry = path[..path.IndexOf('/')];
-            repo = path[(path.IndexOf('/') + 1)..];
-        }
-        else
-        {
-            registry = reference[..firstSlash];
-            repo = reference[(firstSlash + 1)..];
-        }
-
-        await Pull(registry, repo, tag, outputDir);
+        await Pull(parsedReference, outputDir, ct);
     }
 
-    public static async Task Pull(string registry, string repository, string tag, string outputDir = ".buildcharts")
+    private static async Task Pull(ChartReference chartReference, string outputDir = ".buildcharts", CancellationToken ct = default)
     {
         try
         {
@@ -63,68 +41,71 @@ public static class OrasClient
 
             var client = new Client
             {
-                CredentialProvider = await DockerCredentialHelper.GetCredentialAsync(registry),
+                CredentialProvider = await DockerCredentialHelper.GetCredentialAsync(chartReference.Registry),
             };
 
             var orasRepository = new Repository(new RepositoryOptions
             {
                 Client = client,
-                Reference = new Reference(registry, repository, tag),
+                Reference = new Reference(chartReference.Registry, chartReference.RepositoryPath),
             });
 
-            //Console.WriteLine("Fetching manifest...");
-            var (manifestDescriptor, manifestStream) = await orasRepository.FetchAsync(tag);
+            var cacheRoot = Path.Combine(Path.GetTempPath(), "buildcharts", "oci", "blobs");
+            Directory.CreateDirectory(cacheRoot);
 
-            using var manifestJson = await JsonDocument.ParseAsync(manifestStream);
-            var layers = manifestJson.RootElement.GetProperty("layers");
-
-            if (layers.GetArrayLength() == 0)
+            // Check existing Chart.lock for digest
+            var digest = await ReadChartLockDigestAsync(chartReference, ct);
+            if (!string.IsNullOrWhiteSpace(digest) && TryGetBlobCacheForDigest(digest, cacheRoot, out var cachedBlobFilePath))
             {
-                throw new Exception("No layers found in the Helm chart manifest.");
+                Console.WriteLine($"Pulled: {chartReference.Registry}/{chartReference.RepositoryPath}:{chartReference.Tag} ({new FileInfo(cachedBlobFilePath).Length} bytes) (cached)");
+                Console.WriteLine($"Digest: {digest} (cached)");
+            }
+            else
+            {
+                var (manifestDescriptor, manifestStream) = await orasRepository.Manifests.FetchAsync(chartReference.Tag, ct);
+                digest = manifestDescriptor.Digest;
+
+                using var manifestJson = await JsonDocument.ParseAsync(manifestStream, cancellationToken: ct);
+
+                var layers = manifestJson.RootElement.GetProperty("layers");
+                if (layers.GetArrayLength() == 0)
+                {
+                    throw new Exception("No layers found in the Helm chart manifest.");
+                }
+
+                var blobDigest = layers[0].GetProperty("digest").GetString()!;
+                var blobSize = layers[0].GetProperty("size").GetInt64();
+
+                await using var chartStream = await orasRepository.Blobs.FetchAsync(new Descriptor
+                {
+                    MediaType = "application/tar+gzip",
+                    Digest = blobDigest,
+                    Size = blobSize,
+                }, ct);
+                
+                TryGetBlobCacheForDigest(digest, cacheRoot, out cachedBlobFilePath);
+
+                await using var blobFile = File.Create(cachedBlobFilePath);
+                await chartStream.CopyToAsync(blobFile, ct);
+
+                Console.WriteLine($"Pulled: {chartReference.Registry}/{chartReference.RepositoryPath}:{chartReference.Tag} ({blobSize} bytes)");
+                Console.WriteLine($"Digest: {manifestDescriptor.Digest}");
             }
 
-            var chartLayer = layers[0];
-            var chartDigest = chartLayer.GetProperty("digest").GetString();
-            var chartSize = chartLayer.GetProperty("size").GetInt64();
+            // Unzip the chart to output directory.
+            await using var tgzStream = File.OpenRead(cachedBlobFilePath);
+            await using var gzipStream = new GZipInputStream(tgzStream);
+            using var tarArchive = TarArchive.CreateInputTarArchive(gzipStream, Encoding.UTF8);
 
-            //Console.WriteLine($"Downloading layers ({chartSize} bytes)...");
-
-            await using var chartStream = await orasRepository.FetchAsync(new Descriptor
-            {
-                MediaType = "application/tar+gzip",
-                Digest = chartDigest!,
-                Size = chartSize,
-            });
-
-            var tgzFilePath = Path.Combine(outputDir, $"{repository.Replace('/', '-')}-{tag}.tgz");
-            Directory.CreateDirectory(outputDir);
-
-            if (File.Exists(tgzFilePath))
-            {
-                File.Delete(tgzFilePath);
-            }
-
-            await using (var fileStream = File.Create(tgzFilePath))
-            {
-                await chartStream.CopyToAsync(fileStream);
-            }
-
-            //Console.WriteLine(Path.GetFullPath(tgzFilePath));
-            //Console.WriteLine($"Download complete");
-
-            Console.WriteLine($"Pulled: {registry}/{repository}:{tag} ({manifestDescriptor.Size} bytes)");
-            Console.WriteLine($"Digest: {manifestDescriptor.Digest}");
-
-            await using (var tgzStream = File.OpenRead(tgzFilePath))
-            await using (var gzipStream = new GZipInputStream(tgzStream))
-            using (var tarArchive = TarArchive.CreateInputTarArchive(gzipStream, Encoding.UTF8))
+            await _semaphore.WaitAsync(ct);
+            try
             {
                 tarArchive.ExtractContents(outputDir);
+                await UpdateChartLockAsync(chartReference, digest, ct);
             }
-
-            if (File.Exists(tgzFilePath))
+            finally
             {
-                File.Delete(tgzFilePath);
+                _semaphore.Release();
             }
         }
         catch (ResponseException e)
@@ -133,5 +114,67 @@ public static class OrasClient
             Console.WriteLine($"Error pulling image: {e.RequestUri} {string.Join(",", errors)}");
             throw;
         }
+    }
+
+    private static bool TryGetBlobCacheForDigest(string lockDigest, string cacheRoot, out string path)
+    {
+        path = string.Empty;
+        if (string.IsNullOrWhiteSpace(lockDigest))
+        {
+            return false;
+        }
+
+        var digestParts = lockDigest.Split(':', 2, StringSplitOptions.RemoveEmptyEntries);
+        var digestAlgorithm = digestParts.Length > 1 ? digestParts[0] : "sha256";
+        var digestValue = digestParts.Length > 1 ? digestParts[1] : lockDigest;
+
+        cacheRoot = Path.Combine(cacheRoot, digestAlgorithm);
+        Directory.CreateDirectory(cacheRoot);
+
+        path = Path.Combine(cacheRoot, digestValue);
+
+        return File.Exists(path);
+    }
+
+    private static async Task<string> ReadChartLockDigestAsync(ChartReference chartReference, CancellationToken ct)
+    {
+        var (_, chartLock) = await ConfigurationManager.ReadChartLockAsync(ct);
+        var dependency = FindChartLockDependency(chartLock, chartReference);
+        return dependency?.Digest;
+    }
+
+    private static async Task UpdateChartLockAsync(ChartReference chartReference, string digest, CancellationToken ct)
+    {
+        var (_, chartLock) = await ConfigurationManager.ReadChartLockAsync(ct);
+
+        var dependency = FindChartLockDependency(chartLock, chartReference);
+        if (dependency == null)
+        {
+            dependency = new ChartLockDependency
+            {
+                Name = chartReference.ChartName,
+                Version = chartReference.Tag,
+                Repository = chartReference.RepositoryFullPath,
+                Digest = digest,
+            };
+            chartLock.Dependencies.Add(dependency);
+        }
+        else
+        {
+            dependency.Version = chartReference.Tag;
+            dependency.Repository = string.IsNullOrWhiteSpace(dependency.Repository) ? chartReference.RepositoryFullPath : dependency.Repository;
+            dependency.Digest = digest;
+        }
+
+        await ConfigurationManager.SaveChartLockAsync(chartLock, ct);
+    }
+    
+    private static ChartLockDependency FindChartLockDependency(ChartLockFile chartLock, ChartReference chartReference)
+    {
+        var dependency = chartLock.Dependencies
+            .Where(x => string.Equals(x.Name, chartReference.ChartName))
+            .Where(x => string.Equals(x.Repository, chartReference.RepositoryFullPath))
+            .FirstOrDefault();
+        return dependency;
     }
 }
