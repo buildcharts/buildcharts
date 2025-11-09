@@ -6,14 +6,15 @@ Plugins hook into the `buildcharts` generation pipeline to run custom logic befo
 
 To enable plugins for a particular repository, declare a top‑level `plugins` list in your `build.yml`. Each entry should be the name of a registered plugin. When you run `buildcharts generate`, these plugins will execute in sequence and can modify the generated HCL or write additional files.
 
-For example, to enable the built‑in NuGet authentication plugin you would write:
+Example:
 
 ```yaml
 plugins:
   - NuGetAuthenticate@v1
+  - TestcontainersDinD@v1
 ```
 
-You can combine multiple plugins by listing them one per line.  Plugins are executed in the order they appear in the list.
+Combine multiple plugins by listing them one per line.  Plugins are executed in the order they appear in the list.
 
 ## Built‑in plugins
 
@@ -35,8 +36,6 @@ This plugin configures NuGet tools to authenticate with Azure Artifacts and othe
 
 #### Usage
 
-Add the plugin to your `build.yml` at the top level:
-
 ```yaml
 # build.yml
 version: v1beta
@@ -54,4 +53,37 @@ targets:
 
 With this configuration in place, running `buildcharts generate` will automatically inject the necessary secrets and modifications so that dotnet restore and NuGet push operations can authenticate against Azure Artifacts feeds.
 
+### `TestcontainersDinD@v1`
 
+This plugin provisions a dedicated Docker-in-Docker (DinD) daemon and configures testcontainers to connect to it during build time, providing an isolated Docker engine.
+
+#### Details
+
+1. Starts `buildcharts-dind` container using `docker:27-dind` image.
+    - If container already exists, re-use it, stop/remove if the image differs.
+    - Uses privileged, binding port `2375`, disabling TLS.
+    - Optional `BUILDCHARTS_DIND_IMAGE` environment variable to override the Docker image tag.
+2. Patches the generated `docker-bake.hcl` for `target "test"`:
+    - `TESTCONTAINERS_HOST_OVERRIDE` – arg with DinD container IP.
+    - `host.docker.internal` – extra hosts resolving to host gateway.
+
+#### Usage
+
+```yaml
+# build.yml
+version: v1beta
+
+plugins:
+  - TestcontainersDinD@v1
+
+environment:
+  - VERSION
+  - COMMIT
+
+targets:
+  test/BuildCharts.Tests/BuildCharts.Tests.csproj:
+    type: test
+  # define your solution and project targets here
+```
+
+When running `buildcharts generate`, the plugin will start (or reuse) the DinD container, update `.buildcharts/docker-bake.hcl`, and leave the Docker daemon running (memory footpint ~40mb).
