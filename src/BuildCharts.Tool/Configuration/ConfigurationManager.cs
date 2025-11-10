@@ -10,6 +10,10 @@ namespace BuildCharts.Tool.Configuration;
 
 public static class ConfigurationManager
 {
+    public const string BUILD_CONFIG_PATH = "build.yml";
+    public const string CHART_CONFIG_PATH = "charts/buildcharts/Chart.yaml";
+    public const string CHART_LOCK_PATH = "Chart.lock";
+
     private static readonly IDeserializer _deserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .WithTypeConverter(new FlexibleListYamlTypeConverter<TargetDefinition>())
@@ -24,7 +28,7 @@ public static class ConfigurationManager
 
     public static async Task<(string, BuildConfig)> ReadBuildConfigAsync(CancellationToken ct)
     {
-        var yaml = await File.ReadAllTextAsync("build.yml", ct);
+        var yaml = await File.ReadAllTextAsync(BUILD_CONFIG_PATH, ct);
         var config = _deserializer.Deserialize<BuildConfig>(yaml) ?? new BuildConfig();
 
         return (yaml, config);
@@ -32,23 +36,23 @@ public static class ConfigurationManager
 
     public static async Task<(string, ChartConfig)> ReadChartConfigAsync(CancellationToken ct)
     {
-        var yaml = await File.ReadAllTextAsync("charts/buildcharts/Chart.yaml", ct);
+        var yaml = await File.ReadAllTextAsync(CHART_CONFIG_PATH, ct);
         var config = _deserializer.Deserialize<ChartConfig>(yaml) ?? new ChartConfig();
 
         return (yaml, config);
     }
 
-    public static async Task<(string, ChartLockFile)> ReadChartLockAsync(CancellationToken ct)
+    public static async Task<(string, ChartLock)> ReadChartLockAsync(CancellationToken ct)
     {
-        var yaml = await File.ReadAllTextAsync("Chart.lock", ct);
-        var config = _deserializer.Deserialize<ChartLockFile>(yaml) ?? new ChartLockFile();
+        var yaml = await File.ReadAllTextAsync(CHART_LOCK_PATH, ct);
+        var config = _deserializer.Deserialize<ChartLock>(yaml) ?? new ChartLock();
 
         return (yaml, config);
     }
 
-    public static async Task SaveChartLockAsync(ChartLockFile chartLockFile, CancellationToken ct)
+    public static async Task SaveChartLockAsync(ChartLock chartLock, CancellationToken ct)
     {
-        var yaml = _serializer.Serialize(chartLockFile);
-        await File.WriteAllTextAsync("Chart.lock", yaml, ct);
+        var yaml = _serializer.Serialize(chartLock);
+        await File.WriteAllTextAsync(CHART_LOCK_PATH, yaml, ct);
     }
 }

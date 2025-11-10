@@ -9,6 +9,7 @@ namespace BuildCharts.Tool.Commands;
 [Subcommand(typeof(InitCommand))]
 [Subcommand(typeof(PullCommand))]
 [Subcommand(typeof(SummaryCommand))]
+[Subcommand(typeof(UpdateCommand))]
 [Subcommand(typeof(VersionCommand))]
 public class RootCommand
 {

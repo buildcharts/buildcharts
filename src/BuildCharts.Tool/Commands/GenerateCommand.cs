@@ -1,11 +1,10 @@
-﻿using BuildCharts.Tool.Configuration;
+﻿using BuildCharts.Tool.Chart;
+using BuildCharts.Tool.Configuration;
 using BuildCharts.Tool.Generate;
-using BuildCharts.Tool.Oras;
 using BuildCharts.Tool.Plugins;
 using McMaster.Extensions.CommandLineUtils;
 using System;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -28,21 +27,28 @@ public class GenerateCommand
                 Directory.Delete(".buildcharts", true);
             }
 
+            if (!File.Exists(ConfigurationManager.CHART_CONFIG_PATH))
+            {
+                Console.Error.WriteLine($"Error: Could not find {ConfigurationManager.CHART_CONFIG_PATH}. Run this command from the repository root.");
+                return 1;
+            }
+
             if (!File.Exists("Chart.lock"))
             {
-                await using var file = File.Create("Chart.lock");
+                File.Create("Chart.lock");
             }
 
             var (_, buildConfig) = await ConfigurationManager.ReadBuildConfigAsync(ct);
             var (_, chartConfig) = await ConfigurationManager.ReadChartConfigAsync(ct);
-
-            _dockerHclGenerator.Validate(buildConfig);
+            var (_, chartLock) = await ConfigurationManager.ReadChartLockAsync(ct);
             
+            ChartValidator.ValidateConfig(buildConfig);
+            //await ChartManager.ValidateLockFile(chartConfig, chartLock, ct);
+
             var plugins = PluginManager.LoadPlugins(buildConfig.Plugins);
 
             Console.WriteLine("Pulling charts...");
-            var pullTasks = chartConfig.Dependencies.Select(dependency => OrasClient.Pull($"{dependency.Repository}/{dependency.Name}:{dependency.Version}", ct: ct));
-            await Task.WhenAll(pullTasks);
+            await ChartManager.UpdateAsync(chartConfig, chartLock, ct: ct);
 
             foreach (var plugin in plugins)
             {

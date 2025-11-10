@@ -11,21 +11,7 @@ namespace BuildCharts.Tool.Generate;
 public class DockerHclGenerator
 {
     private readonly HashSet<string> _usedNames = [];
-
-    public void Validate(BuildConfig buildConfig)
-    {
-        var totalBuildTargets = buildConfig.Targets.SelectMany(x => x.Value).Count(x => x.Type == "build");
-        if (totalBuildTargets == 0)
-        {
-            throw new InvalidOperationException("Invalid build.yaml - Missing build target.");
-        }
-
-        if (totalBuildTargets > 1)
-        {
-            throw new InvalidOperationException("Invalid build.yaml - Only 1 build target is supported.");
-        }
-    }
-
+    
     public async Task<StringBuilder> GenerateAsync(BuildConfig buildConfig, ChartConfig chartConfig, bool useInlineDockerFile)
     {
         var sb = new StringBuilder();

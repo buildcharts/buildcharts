@@ -1,4 +1,5 @@
-﻿using BuildCharts.Tool.Init.Detection;
+﻿using BuildCharts.Tool.Configuration;
+using BuildCharts.Tool.Init.Detection;
 using BuildCharts.Tool.Init.Generation;
 using McMaster.Extensions.CommandLineUtils;
 using System;
@@ -23,8 +24,8 @@ public class InitCommand
                 return 1;
             }
 
-            var buildConfig = await BuildCharts.Tool.Init.Generation.DotNet.CreateBuildConfig("build.yml", ct);
-            await Helm.CreateChart("charts/buildcharts/Chart.yaml", ct);
+            var buildConfig = await BuildCharts.Tool.Init.Generation.DotNet.CreateBuildConfig(ConfigurationManager.BUILD_CONFIG_PATH, ct);
+            await Helm.CreateChart(ConfigurationManager.CHART_CONFIG_PATH, ct);
 
             var gitProvider = await GitProviderDetector.DetectAsync(ct);
             if (gitProvider == GitProvider.GitHub)
@@ -35,8 +36,8 @@ public class InitCommand
             Console.WriteLine("buildcharts initialized");
             Console.WriteLine("");
             Console.WriteLine("✅ Generated files:");
-            Console.WriteLine("   • \u001b[2mbuild.yml\u001b[22m");
-            Console.WriteLine("   • \u001b[2mcharts/buildcharts/Chart.yaml\u001b[22m");
+            Console.WriteLine($"   • \u001b[2m{ConfigurationManager.BUILD_CONFIG_PATH}\u001b[22m");
+            Console.WriteLine($"   • \u001b[2m{ConfigurationManager.CHART_CONFIG_PATH}\u001b[22m");
             Console.WriteLine();
             Console.WriteLine("✅ Targets:");
 
@@ -55,13 +56,13 @@ public class InitCommand
             }
 
             Console.WriteLine("👉 Next steps:");
-            Console.WriteLine($"   • Edit {Highlight("build.yml")} to customize build pipeline");
+            Console.WriteLine($"   • Edit {Highlight(ConfigurationManager.BUILD_CONFIG_PATH)} to customize build pipeline");
             Console.WriteLine($"   • Run {Highlight("buildcharts generate")} to generate build pipeline");
             Console.WriteLine($"   • Run {Highlight("docker buildx bake")} to run build pipeline");
             Console.WriteLine();
             Console.WriteLine("💡 Tips:");
-            Console.WriteLine($"   • Run {Highlight("buildcharts update")} to auto-sync chart dependencies");
-            Console.WriteLine($"   • Customize default base images and tags in {Highlight("charts/buildcharts/Chart.yaml")}");
+            Console.WriteLine($"   • Run {Highlight("buildcharts update")} to sync chart dependencies");
+            Console.WriteLine($"   • Customize default base images and tags in {Highlight(ConfigurationManager.CHART_CONFIG_PATH)}");
             Console.WriteLine("");
 
             // TODO: Add .buildcharts to .gitignore

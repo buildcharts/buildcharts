@@ -1,4 +1,5 @@
-﻿using BuildCharts.Tool.Configuration;
+﻿using BuildCharts.Tool.Chart;
+using BuildCharts.Tool.Configuration;
 using BuildCharts.Tool.Configuration.Models;
 using BuildCharts.Tool.Docker;
 using ICSharpCode.SharpZipLib.GZip;
@@ -8,6 +9,8 @@ using OrasProject.Oras.Registry;
 using OrasProject.Oras.Registry.Remote;
 using OrasProject.Oras.Registry.Remote.Auth;
 using OrasProject.Oras.Registry.Remote.Exceptions;
+using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Digests;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -21,23 +24,19 @@ namespace BuildCharts.Tool.Oras;
 
 public static class OrasClient
 {
-    private static readonly SemaphoreSlim _semaphore = new (1,1);
+    private static readonly SemaphoreSlim _semaphore = new(1, 1);
+    private static readonly SemaphoreSlim _lockSyncSemaphore = new(1, 1);
+    private static bool _lockSyncChecked;
 
-    public static async Task Pull(string reference, string outputDir = ".buildcharts", CancellationToken ct = default)
-    {
-        if (!ChartReference.TryParse(reference, out var parsedReference))
-        {
-            throw new ArgumentException("Invalid chart reference");
-        }
 
-        await Pull(parsedReference, outputDir, ct);
-    }
-
-    private static async Task Pull(ChartReference chartReference, string outputDir = ".buildcharts", CancellationToken ct = default)
+    public static async Task<string> Pull(string reference, bool untar, string untarDir, string outputDir, bool useDigestName = false, CancellationToken ct = default)
     {
         try
         {
-            //Console.WriteLine($"Pulling {repository}:{tag}");
+            if (!ChartReference.TryParse(reference, out var chartReference))
+            {
+                throw new ArgumentException("Invalid chart reference");
+            }
 
             var client = new Client
             {
@@ -50,63 +49,47 @@ public static class OrasClient
                 Reference = new Reference(chartReference.Registry, chartReference.RepositoryPath),
             });
 
-            var cacheRoot = Path.Combine(Path.GetTempPath(), "buildcharts", "oci", "blobs");
-            Directory.CreateDirectory(cacheRoot);
+            var (manifestDescriptor, manifestStream) = await orasRepository.Manifests.FetchAsync(chartReference.Tag, ct);
+            
+            using var manifestJson = await JsonDocument.ParseAsync(manifestStream, cancellationToken: ct);
 
-            // Check existing Chart.lock for digest
-            var digest = await ReadChartLockDigestAsync(chartReference, ct);
-            if (!string.IsNullOrWhiteSpace(digest) && TryGetBlobCacheForDigest(digest, cacheRoot, out var cachedBlobFilePath))
+            var layers = manifestJson.RootElement.GetProperty("layers");
+            if (layers.GetArrayLength() == 0)
             {
-                Console.WriteLine($"Pulled: {chartReference.Registry}/{chartReference.RepositoryPath}:{chartReference.Tag} ({new FileInfo(cachedBlobFilePath).Length} bytes) (cached)");
-                Console.WriteLine($"Digest: {digest} (cached)");
-            }
-            else
-            {
-                var (manifestDescriptor, manifestStream) = await orasRepository.Manifests.FetchAsync(chartReference.Tag, ct);
-                digest = manifestDescriptor.Digest;
-
-                using var manifestJson = await JsonDocument.ParseAsync(manifestStream, cancellationToken: ct);
-
-                var layers = manifestJson.RootElement.GetProperty("layers");
-                if (layers.GetArrayLength() == 0)
-                {
-                    throw new Exception("No layers found in the Helm chart manifest.");
-                }
-
-                var blobDigest = layers[0].GetProperty("digest").GetString()!;
-                var blobSize = layers[0].GetProperty("size").GetInt64();
-
-                await using var chartStream = await orasRepository.Blobs.FetchAsync(new Descriptor
-                {
-                    MediaType = "application/tar+gzip",
-                    Digest = blobDigest,
-                    Size = blobSize,
-                }, ct);
-                
-                TryGetBlobCacheForDigest(digest, cacheRoot, out cachedBlobFilePath);
-
-                await using var blobFile = File.Create(cachedBlobFilePath);
-                await chartStream.CopyToAsync(blobFile, ct);
-
-                Console.WriteLine($"Pulled: {chartReference.Registry}/{chartReference.RepositoryPath}:{chartReference.Tag} ({blobSize} bytes)");
-                Console.WriteLine($"Digest: {manifestDescriptor.Digest}");
+                throw new Exception("No layers found in the Helm chart manifest.");
             }
 
-            // Unzip the chart to output directory.
-            await using var tgzStream = File.OpenRead(cachedBlobFilePath);
-            await using var gzipStream = new GZipInputStream(tgzStream);
-            using var tarArchive = TarArchive.CreateInputTarArchive(gzipStream, Encoding.UTF8);
+            var blobDigest = layers[0].GetProperty("digest").GetString()!;
+            var blobSize = layers[0].GetProperty("size").GetInt64();
 
-            await _semaphore.WaitAsync(ct);
-            try
+            await using var chartStream = await orasRepository.Blobs.FetchAsync(new Descriptor
             {
-                tarArchive.ExtractContents(outputDir);
-                await UpdateChartLockAsync(chartReference, digest, ct);
-            }
-            finally
+                MediaType = "application/tar+gzip",
+                Digest = blobDigest,
+                Size = blobSize,
+            }, ct);
+
+            var fileName = useDigestName
+                ? Path.Join(outputDir, "sha256", manifestDescriptor.Digest.Split(':', 2, StringSplitOptions.RemoveEmptyEntries)[1])
+                : Path.Join(outputDir, $"{chartReference.ChartName}.tgz");
+
+            await using var blobFile = File.Create(fileName);
+            await chartStream.CopyToAsync(blobFile, ct);
+            Console.WriteLine($"Pulled: {chartReference.Registry}/{chartReference.RepositoryPath}:{chartReference.Tag} ({blobSize} bytes)");
+            Console.WriteLine($"Digest: {manifestDescriptor.Digest}");
+  
+            if (untar)
             {
-                _semaphore.Release();
+                // Untar the chart to output directory.
+                blobFile.Position = 0;
+                await using var tgzStream = blobFile;
+                await using var gzipStream = new GZipInputStream(tgzStream);
+                using var tarArchive = TarArchive.CreateInputTarArchive(gzipStream, Encoding.UTF8);
+                tarArchive.ExtractContents(untarDir);
             }
+
+            return manifestDescriptor.Digest;
+
         }
         catch (ResponseException e)
         {
@@ -116,65 +99,119 @@ public static class OrasClient
         }
     }
 
-    private static bool TryGetBlobCacheForDigest(string lockDigest, string cacheRoot, out string path)
+    private static async Task EnsureChartLockSyncAsync(CancellationToken ct)
     {
-        path = string.Empty;
-        if (string.IsNullOrWhiteSpace(lockDigest))
+        if (_lockSyncChecked)
         {
-            return false;
+            return;
         }
 
-        var digestParts = lockDigest.Split(':', 2, StringSplitOptions.RemoveEmptyEntries);
-        var digestAlgorithm = digestParts.Length > 1 ? digestParts[0] : "sha256";
-        var digestValue = digestParts.Length > 1 ? digestParts[1] : lockDigest;
-
-        cacheRoot = Path.Combine(cacheRoot, digestAlgorithm);
-        Directory.CreateDirectory(cacheRoot);
-
-        path = Path.Combine(cacheRoot, digestValue);
-
-        return File.Exists(path);
-    }
-
-    private static async Task<string> ReadChartLockDigestAsync(ChartReference chartReference, CancellationToken ct)
-    {
-        var (_, chartLock) = await ConfigurationManager.ReadChartLockAsync(ct);
-        var dependency = FindChartLockDependency(chartLock, chartReference);
-        return dependency?.Digest;
-    }
-
-    private static async Task UpdateChartLockAsync(ChartReference chartReference, string digest, CancellationToken ct)
-    {
-        var (_, chartLock) = await ConfigurationManager.ReadChartLockAsync(ct);
-
-        var dependency = FindChartLockDependency(chartLock, chartReference);
-        if (dependency == null)
+        await _lockSyncSemaphore.WaitAsync(ct);
+        try
         {
-            dependency = new ChartLockDependency
+            if (_lockSyncChecked)
             {
-                Name = chartReference.ChartName,
-                Version = chartReference.Tag,
-                Repository = chartReference.RepositoryFullPath,
-                Digest = digest,
-            };
-            chartLock.Dependencies.Add(dependency);
+                return;
+            }
+
+            if (!File.Exists("charts/buildcharts/Chart.yaml") || !File.Exists("Chart.lock"))
+            {
+                _lockSyncChecked = true;
+                return;
+            }
+
+            var (_, chartConfig) = await ConfigurationManager.ReadChartConfigAsync(ct);
+            var (_, chartLock) = await ConfigurationManager.ReadChartLockAsync(ct);
+
+            var mismatches = CalculateChartLockMismatches(chartConfig, chartLock);
+            if (mismatches.Count > 0)
+            {
+                Console.WriteLine("Warning: Chart.lock is out of sync with charts/buildcharts/Chart.yaml:");
+                foreach (var mismatch in mismatches)
+                {
+                    Console.WriteLine($"  - {mismatch}");
+                }
+                Console.WriteLine("Run `buildcharts update` to refresh the lock file.");
+            }
+
+            _lockSyncChecked = true;
         }
-        else
+        finally
         {
-            dependency.Version = chartReference.Tag;
-            dependency.Repository = string.IsNullOrWhiteSpace(dependency.Repository) ? chartReference.RepositoryFullPath : dependency.Repository;
-            dependency.Digest = digest;
+            _lockSyncSemaphore.Release();
+        }
+    }
+
+    private static List<string> CalculateChartLockMismatches(ChartConfig chartConfig, ChartLock chartLock)
+    {
+        var issues = new List<string>();
+        var configDependencies = chartConfig?.Dependencies ?? new List<ChartDependency>();
+        var lockDependencies = chartLock?.Dependencies ?? new List<ChartLockDependency>();
+
+        var normalizedLockDeps = lockDependencies
+            .Select(ld => new
+            {
+                Dependency = ld,
+                Repository = NormalizeRepository(ld.Repository),
+            })
+            .ToList();
+
+        foreach (var dependency in configDependencies)
+        {
+            var expectedRepo = NormalizeRepository(BuildRepository(dependency));
+            if (string.IsNullOrWhiteSpace(expectedRepo))
+            {
+                continue;
+            }
+
+            var lockEntry = normalizedLockDeps
+                .FirstOrDefault(ld =>
+                    string.Equals(ld.Repository, expectedRepo, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(ld.Dependency.Name, dependency.Name, StringComparison.OrdinalIgnoreCase))
+                ?.Dependency;
+
+            if (lockEntry == null)
+            {
+                issues.Add($"Missing entry for {dependency.Name}@{dependency.Version} ({expectedRepo})");
+                continue;
+            }
+
+            if (!string.Equals(lockEntry.Version, dependency.Version, StringComparison.OrdinalIgnoreCase))
+            {
+                issues.Add($"Version mismatch for {dependency.Name}: Chart.yaml={dependency.Version}, Chart.lock={lockEntry.Version}");
+            }
         }
 
-        await ConfigurationManager.SaveChartLockAsync(chartLock, ct);
+        foreach (var lockDep in normalizedLockDeps)
+        {
+            var hasMatch = configDependencies.Any(dep =>
+                string.Equals(NormalizeRepository(BuildRepository(dep)), lockDep.Repository, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(dep.Name, lockDep.Dependency.Name, StringComparison.OrdinalIgnoreCase));
+
+            if (!hasMatch)
+            {
+                issues.Add($"Orphaned lock entry {lockDep.Dependency.Name}@{lockDep.Dependency.Version} ({lockDep.Dependency.Repository})");
+            }
+        }
+
+        return issues;
     }
-    
-    private static ChartLockDependency FindChartLockDependency(ChartLockFile chartLock, ChartReference chartReference)
+
+    private static string BuildRepository(ChartDependency dependency)
     {
-        var dependency = chartLock.Dependencies
-            .Where(x => string.Equals(x.Name, chartReference.ChartName))
-            .Where(x => string.Equals(x.Repository, chartReference.RepositoryFullPath))
-            .FirstOrDefault();
-        return dependency;
+        if (dependency == null || string.IsNullOrWhiteSpace(dependency.Repository) || string.IsNullOrWhiteSpace(dependency.Name))
+        {
+            return string.Empty;
+        }
+
+        var baseRepo = dependency.Repository.Trim().TrimEnd('/');
+        return $"{baseRepo}/{dependency.Name}".TrimEnd('/');
+    }
+
+    private static string NormalizeRepository(string repository)
+    {
+        return string.IsNullOrWhiteSpace(repository)
+            ? string.Empty
+            : repository.Trim().TrimEnd('/');
     }
 }
