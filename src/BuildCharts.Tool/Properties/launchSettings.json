@@ -3,14 +3,14 @@
     "BuildCharts.Tool": {
       "commandName": "Project",
       "commandLineArgs": "",
-      //"commandLineArgs": "version",
-      //"commandLineArgs": "init",
       //"commandLineArgs": "generate",
+      //"commandLineArgs": "init",
       //"commandLineArgs": "pull registry-1.docker.io/buildcharts/dotnet-build:0.0.1",
       //"commandLineArgs": "summary",
+      //"commandLineArgs": "update",
+      //"commandLineArgs": "version",
       //"workingDirectory": "$(ProjectDir)",
-      //"workingDirectory": "c:\\dev\\eddietisma-krp\\",
-      "workingDirectory": "c:\\dev\\eddietisma-buildcharts\\"
+      "workingDirectory": "F:\\eddietisma-buildcharts\\"
     }
   }
 }

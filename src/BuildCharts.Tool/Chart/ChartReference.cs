@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace BuildCharts.Tool.Oras;
+namespace BuildCharts.Tool.Chart;
 
 internal readonly record struct ChartReference(string Original, string Registry, string RepositoryPath, string ChartName, string RepositoryParentPath, string Alias, string Tag)
 {

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace BuildCharts.Tool.Configuration.Models;
 
-public class ChartLockFile
+public class ChartLock
 {
     public List<ChartLockDependency> Dependencies { get; set; } = [];
     public int LockVersion { get; set; } = 1;
