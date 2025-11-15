@@ -29,9 +29,6 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
     {
         try
         {
-            Console.WriteLine("");
-            Console.WriteLine($"\u001b[2mRunning plugin: {Name}\u001b[22m");
-
             var sources = await GetNuGetSources(ct);
             if (!sources.Any())
             {
@@ -96,8 +93,6 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
                 WriteValueToFile("VSS_NUGET_EXTERNAL_FEED_ENDPOINTS", feedEndpoints);
                 WriteValueToFile("VSS_NUGET_ACCESSTOKEN", token);
             }
-
-            Console.WriteLine($"\u001b[2mPlugin complete: {Name}\u001b[22m");
         }
         catch (Exception ex)
         {

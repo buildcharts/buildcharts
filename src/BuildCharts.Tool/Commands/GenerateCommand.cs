@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace BuildCharts.Tool.Commands;
 
@@ -52,6 +53,8 @@ public class GenerateCommand
 
             foreach (var plugin in plugins)
             {
+                Console.WriteLine("");
+                Console.WriteLine($"\u001b[2mRunning plugin: {plugin.Name}\u001b[22m");
                 await plugin.OnBeforeGenerateAsync(buildConfig, ct);
             }
           
@@ -60,6 +63,7 @@ public class GenerateCommand
             foreach (var plugin in plugins)
             {
                 await plugin.OnAfterGenerateAsync(buildConfig, chartConfig, hclStringBuilder, ct);
+                Console.WriteLine($"\u001b[2mPlugin complete: {plugin.Name}\u001b[22m");
             }
             
             await File.WriteAllTextAsync(Path.Join(".buildcharts", "docker-bake.hcl"), hclStringBuilder.ToString(), ct);

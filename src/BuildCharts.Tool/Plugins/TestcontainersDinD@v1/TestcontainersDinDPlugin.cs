@@ -29,9 +29,6 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
     {
         try
         {
-            Console.WriteLine("");
-            Console.WriteLine($"\u001b[2mRunning plugin: {Name}\u001b[22m");
-
             var runningContainer = await IfAlreadyExistsAndSameImageOtherwiseKill(ct);
             if (runningContainer is not null)
             {
@@ -60,8 +57,6 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
                 WriteValueToFile("container_debuginfo.json", JsonSerializer.Serialize(container, new JsonSerializerOptions { WriteIndented = true }));
                 Console.WriteLine("Successfully started buildcharts-dind container");
             }
-
-            Console.WriteLine($"\u001b[2mPlugin complete: {Name}\u001b[22m");
         }
         catch (Exception ex)
         {
