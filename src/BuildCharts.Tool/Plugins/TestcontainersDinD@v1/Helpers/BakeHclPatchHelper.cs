@@ -31,7 +31,8 @@ public static class BakeHclPatchHelper
         var targetMarkerIndex = text.IndexOf(TARGET_MARKER, StringComparison.OrdinalIgnoreCase);
         if (targetMarkerIndex < 0)
         {
-            throw new InvalidOperationException($"Could not find {TARGET_MARKER}.");
+            Console.WriteLine($"Skipped updating docker-bake.hcl due to missing test target.");
+            return;
         }
 
         // 2) Find '{' after marker
