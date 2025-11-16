@@ -1,6 +1,7 @@
-﻿using BuildCharts.Tool.Configuration.Models;
+using BuildCharts.Tool.Configuration.Models;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -48,6 +49,8 @@ public class DockerHclGenerator
         {
             var type = targetGroup.Key;
             var chartAlias = chartConfig.Dependencies.FirstOrDefault(d => d.Alias.Equals(type, StringComparison.OrdinalIgnoreCase))?.Name;
+            var targets = targetGroup.Select(x => new TargetItem(x.Key, x.def, ExtractArgs(x.def.With))).ToList();
+            var args = targets.SelectMany(t => t.Args.Keys).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
 
             sb.AppendLine($"target \"{type}\" {{");
             sb.AppendLine($"  inherits = [\"_common\"]");
@@ -68,7 +71,7 @@ public class DockerHclGenerator
             sb.AppendLine("  matrix = {");
             sb.AppendLine("    item = [");
 
-            foreach (var item in targetGroup)
+            foreach (var item in targets)
             {
                 var targetName = CreateUniqueName(buildConfig, item.Key, type);
                 typedTargets.Add(new TypedTarget(targetName, type));
@@ -77,10 +80,19 @@ public class DockerHclGenerator
                 sb.AppendLine($"        name = \"{targetName}\",");
                 sb.AppendLine($"        src  = \"{item.Key}\"");
 
-                // Emit tags
-                if (targetGroup.Any(x => x.def.With.ContainsKey("tags")))
+                // Emit args in matrix
+                if (args.Count > 0)
                 {
-                    if (item.def.With.TryGetValue("tags", out var rawTags) && rawTags is List<object> tagList)
+                    foreach (var argKey in args)
+                    {
+                        sb.AppendLine($"        {argKey} = \"{FormatArgValue(item.Args, argKey)}\"");
+                    }
+                }
+
+                // Emit tags in matrix
+                if (targets.Any(x => x.Definition.With.ContainsKey("tags")))
+                {
+                    if (item.Definition.With.TryGetValue("tags", out var rawTags) && rawTags is List<object> tagList)
                     {
                         var tags = tagList.Cast<string>().Select(t => $"\"{t}\"");
                         sb.AppendLine($"        tags = [{string.Join(",", tags)}]");
@@ -91,12 +103,12 @@ public class DockerHclGenerator
                     }
                 }
 
-                // Emit base
-                if (targetGroup.Any(x => x.def.With.ContainsKey("base")))
+                // Emit base in matrix
+                if (targets.Any(x => x.Definition.With.ContainsKey("base")))
                 {
-                    if (item.def.With.TryGetValue("base", out var baseImage))
+                    if (item.Definition.With.TryGetValue("base", out var baseImage))
                     {
-                        sb.AppendLine($"        base = \"docker-image://{baseImage}\"");
+                        sb.AppendLine($"        base = \"{baseImage}\"");
                     }
                     else
                     {
@@ -104,10 +116,10 @@ public class DockerHclGenerator
                     }
                 }
 
-                // Emit allow
-                if (targetGroup.Any(x => x.def.With.ContainsKey("allow")))
+                // Emit allow in matrix
+                if (targets.Any(x => x.Definition.With.ContainsKey("allow")))
                 {
-                    if (item.def.With.TryGetValue("allow", out var rawAllows) && rawAllows is List<object> allowList)
+                    if (item.Definition.With.TryGetValue("allow", out var rawAllows) && rawAllows is List<object> allowList)
                     {
                         var allows = allowList.Cast<string>().Select(t => $"\"{t}\"");
                         sb.AppendLine($"        allow = [{string.Join(",", allows)}]");
@@ -128,10 +140,18 @@ public class DockerHclGenerator
             sb.AppendLine("  args = {");
             sb.AppendLine("    BUILDCHARTS_SRC = item.src");
             sb.AppendLine("    BUILDCHARTS_TYPE = \"" + type + "\"");
+            if (args.Count > 0)
+            {
+                foreach (var argKey in args)
+                {
+                    sb.AppendLine($"    {argKey.ToUpperInvariant()} = \"${{item.{argKey}}}\"");
+                }
+            }
+
             sb.AppendLine("  }");
 
             // Emit tags
-            if (targetGroup.Any(x => x.def.With.ContainsKey("tags")))
+            if (targets.Any(x => x.Definition.With.ContainsKey("tags")))
             {
                 sb.AppendLine("  tags = \"${item.tags}\"");
             }
@@ -142,14 +162,14 @@ public class DockerHclGenerator
             {
                 sb.AppendLine("    build = \"target:build\"");
             }
-            if (targetGroup.Any(x => x.def.With.ContainsKey("base")))
+            if (targets.Any(x => x.Definition.With.ContainsKey("base")))
             {
-                sb.AppendLine("    base = \"${item.base}\"");
+                sb.AppendLine("    base = \"docker-image://${item.base}\"");
             }
             sb.AppendLine("  }");
 
             // Emit entitlements
-            if (targetGroup.Any(x => x.def.With.ContainsKey("allow")))
+            if (targets.Any(x => x.Definition.With.ContainsKey("allow")))
             {
                 sb.AppendLine("  allow = \"${item.allow}\"");
             }
@@ -216,6 +236,44 @@ public class DockerHclGenerator
         return sb;
     }
 
+    private static List<string> CollectArgKeys(IEnumerable<TargetItem> targets)
+    {
+        return targets
+            .SelectMany(t => t.Args.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static Dictionary<string, object> ExtractArgs(IReadOnlyDictionary<string, object> with)
+    {
+        if (with.TryGetValue("args", out var rawArgs) && rawArgs is Dictionary<object, object> args)
+        {
+            return args.ToDictionary(k => k.Key.ToString(), v => v.Value);
+        }
+
+        return [];
+    }
+
+    private static string FormatArgValue(IReadOnlyDictionary<string, object> args, string key)
+    {
+        if (!args.TryGetValue(key, out var value) || value is null)
+        {
+            return string.Empty;
+        }
+
+        if (value is not IEnumerable<object> list)
+        {
+            return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+        }
+
+        var items = list
+            .Select(v => Convert.ToString(v, CultureInfo.InvariantCulture))
+            .Where(s => !string.IsNullOrEmpty(s));
+        return string.Join(",", items);
+
+    }
+    
     private string CreateUniqueName(BuildConfig buildConfig, string src, string type)
     {
         // Count how many targets share this type
@@ -250,5 +308,6 @@ public class DockerHclGenerator
         return name;
     }
 
+    private record TargetItem(string Key, TargetDefinition Definition, Dictionary<string, object> Args);
     private record TypedTarget(string Name, string Type);
 }
