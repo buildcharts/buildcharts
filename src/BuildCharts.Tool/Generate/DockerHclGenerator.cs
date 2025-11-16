@@ -50,7 +50,12 @@ public class DockerHclGenerator
             var type = targetGroup.Key;
             var chartAlias = chartConfig.Dependencies.FirstOrDefault(d => d.Alias.Equals(type, StringComparison.OrdinalIgnoreCase))?.Name;
             var targets = targetGroup.Select(x => new TargetItem(x.Key, x.def, ExtractArgs(x.def.With))).ToList();
-            var args = targets.SelectMany(t => t.Args.Keys).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
+            var argKeys = CollectArgKeys(targets);
+
+            var hasArgs = argKeys.Count > 0;
+            var hasTags = targets.Any(x => x.Definition.With.ContainsKey("tags"));
+            var hasBase = targets.Any(x => x.Definition.With.ContainsKey("base"));
+            var hasAllow = targets.Any(x => x.Definition.With.ContainsKey("allow"));
 
             sb.AppendLine($"target \"{type}\" {{");
             sb.AppendLine($"  inherits = [\"_common\"]");
@@ -81,16 +86,16 @@ public class DockerHclGenerator
                 sb.AppendLine($"        src  = \"{item.Key}\"");
 
                 // Emit args in matrix
-                if (args.Count > 0)
+                if (hasArgs)
                 {
-                    foreach (var argKey in args)
+                    foreach (var argKey in argKeys)
                     {
                         sb.AppendLine($"        {argKey} = \"{FormatArgValue(item.Args, argKey)}\"");
                     }
                 }
 
                 // Emit tags in matrix
-                if (targets.Any(x => x.Definition.With.ContainsKey("tags")))
+                if (hasTags)
                 {
                     if (item.Definition.With.TryGetValue("tags", out var rawTags) && rawTags is List<object> tagList)
                     {
@@ -104,7 +109,7 @@ public class DockerHclGenerator
                 }
 
                 // Emit base in matrix
-                if (targets.Any(x => x.Definition.With.ContainsKey("base")))
+                if (hasBase)
                 {
                     if (item.Definition.With.TryGetValue("base", out var baseImage))
                     {
@@ -117,7 +122,7 @@ public class DockerHclGenerator
                 }
 
                 // Emit allow in matrix
-                if (targets.Any(x => x.Definition.With.ContainsKey("allow")))
+                if (hasAllow)
                 {
                     if (item.Definition.With.TryGetValue("allow", out var rawAllows) && rawAllows is List<object> allowList)
                     {
@@ -140,9 +145,9 @@ public class DockerHclGenerator
             sb.AppendLine("  args = {");
             sb.AppendLine("    BUILDCHARTS_SRC = item.src");
             sb.AppendLine("    BUILDCHARTS_TYPE = \"" + type + "\"");
-            if (args.Count > 0)
+            if (hasArgs)
             {
-                foreach (var argKey in args)
+                foreach (var argKey in argKeys)
                 {
                     sb.AppendLine($"    {argKey.ToUpperInvariant()} = \"${{item.{argKey}}}\"");
                 }
@@ -151,7 +156,7 @@ public class DockerHclGenerator
             sb.AppendLine("  }");
 
             // Emit tags
-            if (targets.Any(x => x.Definition.With.ContainsKey("tags")))
+            if (hasTags)
             {
                 sb.AppendLine("  tags = \"${item.tags}\"");
             }
@@ -162,14 +167,14 @@ public class DockerHclGenerator
             {
                 sb.AppendLine("    build = \"target:build\"");
             }
-            if (targets.Any(x => x.Definition.With.ContainsKey("base")))
+            if (hasBase)
             {
                 sb.AppendLine("    base = \"docker-image://${item.base}\"");
             }
             sb.AppendLine("  }");
 
             // Emit entitlements
-            if (targets.Any(x => x.Definition.With.ContainsKey("allow")))
+            if (hasAllow)
             {
                 sb.AppendLine("  allow = \"${item.allow}\"");
             }
@@ -216,17 +221,6 @@ public class DockerHclGenerator
         
         sb.AppendLine("EOF");
         sb.AppendLine("}");
-
-        //// Emit groups
-        //sb.AppendLine();
-        //foreach (var typeGroup in typedTargets.GroupBy(x => x.Type))
-        //{
-        //    sb.AppendLine($"group \"{typeGroup.Key}\" {{");
-        //    sb.AppendLine($"  targets = [");
-        //    sb.AppendLine($"    {string.Join(",\n    ", typeGroup.Select(x => $"\"{x.Name}\""))}");
-        //    sb.AppendLine("   ]");
-        //    sb.AppendLine("}");
-        //}
 
         sb.AppendLine();
         sb.AppendLine("group \"default\" {");
