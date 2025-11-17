@@ -9,8 +9,6 @@ using OrasProject.Oras.Registry;
 using OrasProject.Oras.Registry.Remote;
 using OrasProject.Oras.Registry.Remote.Auth;
 using OrasProject.Oras.Registry.Remote.Exceptions;
-using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Crypto.Digests;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -25,7 +23,6 @@ namespace BuildCharts.Tool.Oras;
 public static class OrasClient
 {
     private static readonly SemaphoreSlim _semaphore = new(1, 1);
-    private static readonly SemaphoreSlim _lockSyncSemaphore = new(1, 1);
     private static bool _lockSyncChecked;
 
 
@@ -106,7 +103,7 @@ public static class OrasClient
             return;
         }
 
-        await _lockSyncSemaphore.WaitAsync(ct);
+        await _semaphore.WaitAsync(ct);
         try
         {
             if (_lockSyncChecked)
@@ -138,7 +135,7 @@ public static class OrasClient
         }
         finally
         {
-            _lockSyncSemaphore.Release();
+            _semaphore.Release();
         }
     }
 
