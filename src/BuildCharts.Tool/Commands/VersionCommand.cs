@@ -1,6 +1,5 @@
 using McMaster.Extensions.CommandLineUtils;
 using System;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -15,12 +14,10 @@ public class VersionCommand
     {
         try
         {
-            var assembly = Assembly.GetExecutingAssembly();
-            var version = assembly.GetName().Version;
+            var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
             var location = assembly.Location;
 
-            var dotnetVersion = Environment.Version.ToString();
-            var gitCommit = version!.Build;
+            var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
             var buildDate = File.GetLastWriteTimeUtc(location).ToString("yyyy-MM-ddTHH:mm:ssZ");
             var os = RuntimeInformation.OSDescription.Trim();
             var arch = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
@@ -29,11 +26,10 @@ public class VersionCommand
 
             Console.WriteLine("buildcharts");
             Console.WriteLine($" version:       {version}");
-            Console.WriteLine($" commit:        {gitCommit}");
             Console.WriteLine($" built:         {buildDate}");
             Console.WriteLine($" os/arch:       {os}/{arch}");
             Console.WriteLine($" cpu/mem:       {Environment.ProcessorCount} cores/{memoryDisplay}");
-            Console.WriteLine($" .NET version:  {dotnetVersion}");
+            Console.WriteLine($" .NET version:  {Environment.Version}");
             Console.WriteLine("");
 
             return 0;
@@ -83,7 +79,7 @@ public class VersionCommand
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                using var process = Process.Start(new ProcessStartInfo
+                using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "/usr/sbin/sysctl",
                     Arguments = "hw.memsize",

@@ -56,6 +56,7 @@ public static class BakeHclPatchHelper
         var secretIdx = slice.IndexOf("secret =", StringComparison.OrdinalIgnoreCase);
         if (secretIdx >= 0)
         {
+            // TODO: Append to secret block if already exists for future plugins.
             throw new InvalidOperationException("Malformed HCL: Secrets already exists in target \"build\".");
         }
 

@@ -35,12 +35,6 @@ COPY --link . .
 
 # Optional: Allow git operations to operate on the repository. Recent versions of git require the .git folder to be owned by the same user.
 # - This can be skipped when no git-operations in dockerfiles.
-# RUN git config --global --add safe.directory /src
-
-# Optional: Normalize line endings for SourceLink/determinism.
-# - Prefer .gitattributes: '* text=auto eol=lf' to enforce LF.
-# - If incorrect git (when running inside docker) may automatically add CRLF line endings which breaks determinism (PDB files links to non-existing sources in git).
-# - Validate with `sourcelink test <filename>.pdb` (for PDB files inside the nuget package).
 RUN git -C /src config core.autocrlf false \
     && git -C /src checkout-index -f --all
 
