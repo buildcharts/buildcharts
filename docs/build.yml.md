@@ -14,7 +14,31 @@ A list of globa variables exposed to pipeline execution. Each item may be just t
 variables:
   - VERSION
   - COMMIT
-  - IMAGE=mcr.microsoft.com/dotnet/aspnet:9.0
+```
+
+2. **Sequence with inline values**
+
+```yaml
+variables:
+  - VERSION: "1.0.0-local"
+  - IMAGE: "mcr.microsoft.com/dotnet/aspnet:10.0"
+```
+
+3. **Sequence with default blocks**
+
+```yaml
+variables:
+  - VERSION:
+      default: "1.0.0-local"
+  - COMMIT: ""
+```
+
+4. **Mapping form**
+
+```yaml
+variables:
+  VERSION: "1.0.0-local"
+  COMMIT: ""
 ```
 
 ### `targets`
@@ -28,7 +52,7 @@ A target can be specified in different ways:
 src/Project/Project.csproj:
   type: nuget
   with:
-    base: mcr.microsoft.com/dotnet/sdk:9.0
+    base: mcr.microsoft.com/dotnet/sdk:10.0
 ```
 
 2. **List of entries**
@@ -38,7 +62,7 @@ src/Project/Project.csproj:
   - type: test
   - type: docker
     with:
-      base: mcr.microsoft.com/dotnet/aspnet:9.0
+      base: mcr.microsoft.com/dotnet/aspnet:10.0
       tags: ["docker.io/username/project:${VERSION}-${COMMIT}"]
 ```
 
@@ -68,13 +92,13 @@ targets:
   buildcharts.sln:
     type: build
     with:
-      base: mcr.microsoft.com/dotnet/sdk:9.0
+      base: mcr.microsoft.com/dotnet/sdk:10.0
 
   src/BuildCharts.Tool/BuildCharts.Tool.csproj:
     - type: nuget
     - type: docker
       with:
-        base: mcr.microsoft.com/dotnet/aspnet:9.0
+        base: mcr.microsoft.com/dotnet/aspnet:10.0
         tags: ["docker.io/buildcharts/buildcharts:${VERSION}-${COMMIT}"]
 ```
 

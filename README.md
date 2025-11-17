@@ -43,13 +43,13 @@ targets:
   buildcharts.sln:
     type: build
     with:
-      base: mcr.microsoft.com/dotnet/sdk:9.0
+      base: mcr.microsoft.com/dotnet/sdk:10.0
 
   src/BuildCharts.Tool/BuildCharts.Tool.csproj:
     - type: nuget
     - type: docker
       with:
-        base: mcr.microsoft.com/dotnet/aspnet:9.0
+        base: mcr.microsoft.com/dotnet/aspnet:10.0
         tags: ["docker.io/buildcharts/buildcharts:${VERSION}-${COMMIT}"]
 
   test/BuildCharts.Tests/BuildCharts.Tests.csproj:
