@@ -149,7 +149,7 @@ public class DockerHclGenerator
             {
                 foreach (var argKey in argKeys)
                 {
-                    sb.AppendLine($"    {argKey.ToUpperInvariant()} = \"${{item.{argKey}}}\"");
+                    sb.AppendLine($"    {argKey.ToUpperSnakeCaseInvariant()} = \"${{item.{argKey}}}\"");
                 }
             }
 
