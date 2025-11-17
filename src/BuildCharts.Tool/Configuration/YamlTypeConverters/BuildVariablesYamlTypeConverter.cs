@@ -31,7 +31,18 @@ public class BuildVariablesYamlTypeConverter : IYamlTypeConverter
             {
                 if (parser.TryConsume<Scalar>(out var scalar))
                 {
-                    dict[scalar.Value] = null;
+                    var text = scalar.Value ?? string.Empty;
+                    var eqIdx = text.IndexOf('=');
+                    if (eqIdx > 0)
+                    {
+                        var key = text[..eqIdx];
+                        var value = eqIdx < text.Length - 1 ? text[(eqIdx + 1)..] : string.Empty;
+                        dict[key] = value;
+                    }
+                    else
+                    {
+                        dict[text] = null;
+                    }
                 }
                 else
                 {
