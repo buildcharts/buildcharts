@@ -2,10 +2,10 @@
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
-		<TargetFramework>net9.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<RootNamespace>BuildCharts.Tool</RootNamespace>
 		<IsPackable>true</IsPackable>
-    	<NoWarn>$(NoWarn);IDE0060</NoWarn>
+    <NoWarn>$(NoWarn);IDE0060</NoWarn>
 		<!--<Nullable>enable</Nullable>-->
 
 		<!--Tool-->
