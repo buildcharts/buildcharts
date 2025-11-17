@@ -16,6 +16,7 @@ public static class ConfigurationManager
 
     private static readonly IDeserializer _deserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .WithTypeConverter(new BuildVariablesYamlTypeConverter())
         .WithTypeConverter(new FlexibleListYamlTypeConverter<TargetDefinition>())
         .IgnoreUnmatchedProperties()
         .Build();

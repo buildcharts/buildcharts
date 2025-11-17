@@ -35,7 +35,7 @@ src/
 ```yaml 
 version: v1beta
 
-environment:
+variables:
   - VERSION
   - COMMIT
 
@@ -150,6 +150,7 @@ Templates support:
 - https://kustomizer.dev
 - https://kustomizer.dev/guides/fluxcd
 - https://docs.docker.com/reference/dockerfile/#onbuild
+- https://docs.docker.com/build/bake/reference#target
 - https://docs.docker.com/build/bake/contexts/#deduplicate-context-transfer
 - https://docs.docker.com/build/cache/backends/registry/
 - https://docs.docker.com/build/concepts/context/#git-repositories
