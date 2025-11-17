@@ -18,9 +18,17 @@ public class DockerHclGenerator
         var sb = new StringBuilder();
 
         // Emit variables block
-        foreach (var param in buildConfig.Environment)
+        foreach (var param in buildConfig.Variables)
         {
-            sb.AppendLine($"variable \"{param.ToUpperInvariant()}\" {{}}");
+            var name = param.Key.ToUpperInvariant();
+            if (!string.IsNullOrEmpty(param.Value))
+            {
+                sb.AppendLine($"variable \"{name}\" {{ default = \"{Escape(param.Value)}\" }}");
+            }
+            else
+            {
+                sb.AppendLine($"variable \"{name}\" {{}}");
+            }
         }
 
         sb.AppendLine();
@@ -29,9 +37,10 @@ public class DockerHclGenerator
         sb.AppendLine("target \"_common\" {");
         sb.AppendLine("  args = {");
 
-        foreach (var param in buildConfig.Environment)
+        foreach (var param in buildConfig.Variables)
         {
-            sb.AppendLine($"    {param.ToUpperInvariant()} = \"${{{param.ToUpperInvariant()}}}\"");
+            var name = param.Key.ToUpperInvariant();
+            sb.AppendLine($"    {name} = \"${{{name}}}\"");
         }
 
         sb.AppendLine("  }");
@@ -256,6 +265,11 @@ public class DockerHclGenerator
             return string.Empty;
         }
 
+        if (value is string s)
+        {
+            return Convert.ToString(s, CultureInfo.InvariantCulture) ?? string.Empty;
+        }
+
         if (value is not IEnumerable<object> list)
         {
             return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
@@ -265,8 +279,12 @@ public class DockerHclGenerator
             .Select(v => Convert.ToString(v, CultureInfo.InvariantCulture))
             .Where(s => !string.IsNullOrEmpty(s));
         return string.Join(",", items);
-
     }
+    
+    private static string Escape(string value) =>
+        value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"");
     
     private string CreateUniqueName(BuildConfig buildConfig, string src, string type)
     {

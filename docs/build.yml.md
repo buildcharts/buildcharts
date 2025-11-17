@@ -7,11 +7,11 @@ This document describes the structure of `build.yml`, which controls how `buildc
 ### `version`
 The metadata version. `latest` is accepted.
 
-### `environment`
-A list of environment variables exposed to pipeline execution. Each item may be just the variable name or `NAME=value` to provide a default.
+### `variables`
+A list of globa variables exposed to pipeline execution. Each item may be just the variable name or `NAME=value` to provide a default.
 
 ```
-environment:
+variables:
   - VERSION
   - COMMIT
   - IMAGE=mcr.microsoft.com/dotnet/aspnet:9.0
@@ -60,7 +60,7 @@ This is equivalent to the list of entries syntax and will be normalized internal
 ```yaml
 version: latest
 
-environment:
+variables:
   - VERSION
   - COMMIT
 

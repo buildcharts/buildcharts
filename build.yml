@@ -1,6 +1,6 @@
 version: v1beta
 
-environment:
+variables:
   - VERSION
   - COMMIT
 

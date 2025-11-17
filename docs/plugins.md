@@ -43,7 +43,7 @@ version: v1beta
 plugins:
   - NuGetAuthenticate@v1
 
-environment:
+variables:
   - VERSION
   - COMMIT
 
@@ -76,7 +76,7 @@ version: v1beta
 plugins:
   - TestcontainersDinD@v1
 
-environment:
+variables:
   - VERSION
   - COMMIT
 
