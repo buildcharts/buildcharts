@@ -5,7 +5,6 @@ using ICSharpCode.SharpZipLib.GZip;
 using ICSharpCode.SharpZipLib.Tar;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -41,11 +40,12 @@ public class ChartManager
                 throw new ArgumentException("Invalid chart reference");
             }
 
+            // Cache folder use to cache new digest or fetch existing ones.
             var cacheRoot = Path.Combine(Path.GetTempPath(), "buildcharts", "oci", "blobs");
             Directory.CreateDirectory(cacheRoot);
 
-            // Check existing Chart.lock for digest
-            var digest = FindChartLockDependency(chartLock, chartReference)?.Digest;
+            // Check existing Chart.lock for digest, to force update pass an empty chart lock file.
+            var digest = chartLock == null ? null : FindChartLockDependency(chartLock, chartReference)?.Digest;
             var existsInCache = TryGetBlobCacheForDigest(digest, cacheRoot, out var cachedBlobFilePath);
             if (existsInCache)
             {
@@ -71,7 +71,7 @@ public class ChartManager
 
     private static ChartLockDependency FindChartLockDependency(ChartLock chartLock, ChartReference chartReference)
     {
-        var dependency = chartLock?.Dependencies
+        var dependency = chartLock.Dependencies
             .Where(x => string.Equals(x.Name, chartReference.ChartName))
             .Where(x => string.Equals(x.Repository, chartReference.RepositoryFullPath))
             .FirstOrDefault();
