@@ -50,11 +50,10 @@ public class GenerateCommand
             ChartValidator.ValidateConfig(buildConfig);
             //await ChartManager.ValidateLockFile(chartConfig, chartLock, ct);
 
-            var plugins = PluginManager.LoadPlugins(buildConfig.Plugins);
-
             Console.WriteLine("Pulling charts...");
             await ChartManager.UpdateAsync(chartConfig, chartLock, ct: ct);
 
+            var plugins = PluginManager.LoadPlugins(buildConfig.Plugins);
             foreach (var plugin in plugins)
             {
                 Console.WriteLine("");
