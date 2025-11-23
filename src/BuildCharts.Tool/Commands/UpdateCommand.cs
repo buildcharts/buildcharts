@@ -22,9 +22,14 @@ public class UpdateCommand
                 return 1;
             }
 
-            if (!File.Exists("Chart.lock"))
+            if (!File.Exists(ConfigurationManager.CHART_LOCK_PATH))
             {
-                await using var file = File.Create("Chart.lock");
+                var lockDir = Path.GetDirectoryName(ConfigurationManager.CHART_LOCK_PATH);
+                if (!string.IsNullOrWhiteSpace(lockDir))
+                {
+                    Directory.CreateDirectory(lockDir);
+                }
+                await using var file = File.Create(ConfigurationManager.CHART_LOCK_PATH);
             }
 
             var (_, chartConfig) = await ConfigurationManager.ReadChartConfigAsync(ct);

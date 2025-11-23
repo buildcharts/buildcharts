@@ -12,7 +12,7 @@ public static class ConfigurationManager
 {
     public const string BUILD_CONFIG_PATH = "build.yml";
     public const string CHART_CONFIG_PATH = "charts/buildcharts/Chart.yaml";
-    public const string CHART_LOCK_PATH = "Chart.lock";
+    public const string CHART_LOCK_PATH = "charts/buildcharts/Chart.lock";
 
     private static readonly IDeserializer _deserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -53,6 +53,11 @@ public static class ConfigurationManager
 
     public static async Task SaveChartLockAsync(ChartLock chartLock, CancellationToken ct)
     {
+        var lockDir = Path.GetDirectoryName(CHART_LOCK_PATH);
+        if (!string.IsNullOrWhiteSpace(lockDir))
+        {
+            Directory.CreateDirectory(lockDir);
+        }
         var yaml = _serializer.Serialize(chartLock);
         await File.WriteAllTextAsync(CHART_LOCK_PATH, yaml, ct);
     }

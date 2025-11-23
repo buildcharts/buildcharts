@@ -111,7 +111,7 @@ public static class OrasClient
                 return;
             }
 
-            if (!File.Exists("charts/buildcharts/Chart.yaml") || !File.Exists("Chart.lock"))
+            if (!File.Exists(ConfigurationManager.CHART_CONFIG_PATH) || !File.Exists(ConfigurationManager.CHART_LOCK_PATH))
             {
                 _lockSyncChecked = true;
                 return;
