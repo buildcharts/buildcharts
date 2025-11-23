@@ -86,9 +86,38 @@ public static class OrasClient
         }
         catch (ResponseException e)
         {
+<<<<<<< HEAD
             var errors = e.Errors?.Select(x => $"{x.Code}: {x.Message}") ?? new List<string>();
             Console.WriteLine($"Error pulling image: {e.RequestUri} {string.Join(",", errors)}");
             throw;
+=======
+            if (_lockSyncChecked)
+            {
+                return;
+            }
+
+            if (!File.Exists(ConfigurationManager.CHART_CONFIG_PATH) || !File.Exists(ConfigurationManager.CHART_LOCK_PATH))
+            {
+                _lockSyncChecked = true;
+                return;
+            }
+
+            var (_, chartConfig) = await ConfigurationManager.ReadChartConfigAsync(ct);
+            var (_, chartLock) = await ConfigurationManager.ReadChartLockAsync(ct);
+
+            var mismatches = CalculateChartLockMismatches(chartConfig, chartLock);
+            if (mismatches.Count > 0)
+            {
+                Console.WriteLine("Warning: Chart.lock is out of sync with charts/buildcharts/Chart.yaml:");
+                foreach (var mismatch in mismatches)
+                {
+                    Console.WriteLine($"  - {mismatch}");
+                }
+                Console.WriteLine("Run `buildcharts update` to refresh the lock file.");
+            }
+
+            _lockSyncChecked = true;
+>>>>>>> 763cfae (Move chart.lock to charts/buildcharts folder to conform with helm)
         }
     }
 }
