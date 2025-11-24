@@ -39,20 +39,16 @@ public class GenerateCommand
           
             if (!File.Exists(ConfigurationManager.CHART_LOCK_PATH) && UseLockFile)
             {
-                var lockDir = Path.GetDirectoryName(ConfigurationManager.CHART_LOCK_PATH);
-                if (!string.IsNullOrWhiteSpace(lockDir))
-                {
-                    Directory.CreateDirectory(lockDir);
-                }
-                await using var _ = File.Create(ConfigurationManager.CHART_LOCK_PATH);
+                Console.Error.WriteLine($"Error: Could not find {ConfigurationManager.CHART_LOCK_PATH}. Run `buildcharts update` to refresh the lock file.");
+                return 1;
             }
 
             var (_, buildConfig) = await ConfigurationManager.ReadBuildConfigAsync(ct);
             var (_, chartConfig) = await ConfigurationManager.ReadChartConfigAsync(ct);
             var (_, chartLock) = UseLockFile ? await ConfigurationManager.ReadChartLockAsync(ct) : (null, new ChartLock());
 
-            ChartValidator.ValidateConfig(buildConfig);
-            //await ChartManager.ValidateLockFile(chartConfig, chartLock, ct);
+            await ChartValidator.ValidateConfigAsync(buildConfig);
+            await ChartValidator.ValidateLockFileAsync(chartConfig, chartLock, UseLockFile, ct);
 
             Console.WriteLine("Pulling charts...");
             await ChartManager.UpdateAsync(chartConfig, chartLock, useLockFile: UseLockFile, ct: ct);
@@ -78,11 +74,6 @@ public class GenerateCommand
             Console.WriteLine("");
             Console.WriteLine("✅ Generated files:");
             Console.WriteLine("   • \u001b[2mdocker-bake.hcl\u001b[22m");
-            if (!File.Exists(ConfigurationManager.CHART_LOCK_PATH) && UseLockFile)
-            {
-                Console.WriteLine($"   • \u001b[2m{ConfigurationManager.CHART_LOCK_PATH}\u001b[22m");
-            }
-
             Console.WriteLine("");
 
             return 0;

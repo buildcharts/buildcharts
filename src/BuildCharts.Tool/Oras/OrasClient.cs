@@ -92,76 +92,28 @@ public static class OrasClient
         }
     }
 
-    private static List<string> CalculateChartLockMismatches(ChartConfig chartConfig, ChartLock chartLock)
+    public static async Task<string> GetManifestDigestAsync(string reference, CancellationToken ct = default)
     {
-        var issues = new List<string>();
-        var configDependencies = chartConfig?.Dependencies ?? new List<ChartDependency>();
-        var lockDependencies = chartLock?.Dependencies ?? new List<ChartLockDependency>();
-
-        var normalizedLockDeps = lockDependencies
-            .Select(ld => new
-            {
-                Dependency = ld,
-                Repository = NormalizeRepository(ld.Repository),
-            })
-            .ToList();
-
-        foreach (var dependency in configDependencies)
+        if (!ChartReference.TryParse(reference, out var chartReference))
         {
-            var expectedRepo = NormalizeRepository(BuildRepository(dependency));
-            if (string.IsNullOrWhiteSpace(expectedRepo))
-            {
-                continue;
-            }
-
-            var lockEntry = normalizedLockDeps
-                .FirstOrDefault(ld =>
-                    string.Equals(ld.Repository, expectedRepo, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(ld.Dependency.Name, dependency.Name, StringComparison.OrdinalIgnoreCase))
-                ?.Dependency;
-
-            if (lockEntry == null)
-            {
-                issues.Add($"Missing entry for {dependency.Name}@{dependency.Version} ({expectedRepo})");
-                continue;
-            }
-
-            if (!string.Equals(lockEntry.Version, dependency.Version, StringComparison.OrdinalIgnoreCase))
-            {
-                issues.Add($"Version mismatch for {dependency.Name}: Chart.yaml={dependency.Version}, Chart.lock={lockEntry.Version}");
-            }
+            throw new ArgumentException("Invalid chart reference");
         }
 
-        foreach (var lockDep in normalizedLockDeps)
+        var client = new Client
         {
-            var hasMatch = configDependencies.Any(dep =>
-                string.Equals(NormalizeRepository(BuildRepository(dep)), lockDep.Repository, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(dep.Name, lockDep.Dependency.Name, StringComparison.OrdinalIgnoreCase));
+            CredentialProvider = await DockerCredentialHelper.GetCredentialAsync(chartReference.Registry),
+        };
 
-            if (!hasMatch)
-            {
-                issues.Add($"Orphaned lock entry {lockDep.Dependency.Name}@{lockDep.Dependency.Version} ({lockDep.Dependency.Repository})");
-            }
-        }
-
-        return issues;
-    }
-
-    private static string BuildRepository(ChartDependency dependency)
-    {
-        if (dependency == null || string.IsNullOrWhiteSpace(dependency.Repository) || string.IsNullOrWhiteSpace(dependency.Name))
+        var orasRepository = new Repository(new RepositoryOptions
         {
-            return string.Empty;
-        }
+            Client = client,
+            Reference = new Reference(chartReference.Registry, chartReference.RepositoryPath),
+        });
 
-        var baseRepo = dependency.Repository.Trim().TrimEnd('/');
-        return $"{baseRepo}/{dependency.Name}".TrimEnd('/');
+        var (manifestDescriptor, manifestStream) = await orasRepository.Manifests.FetchAsync(chartReference.Tag, ct);
+        await manifestStream.DisposeAsync();
+
+        return manifestDescriptor.Digest;
     }
 
-    private static string NormalizeRepository(string repository)
-    {
-        return string.IsNullOrWhiteSpace(repository)
-            ? string.Empty
-            : repository.Trim().TrimEnd('/');
-    }
 }

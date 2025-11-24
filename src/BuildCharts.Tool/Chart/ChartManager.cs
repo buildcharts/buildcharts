@@ -24,6 +24,7 @@ public class ChartManager
         }
 
         var results = new ConcurrentBag<(ChartReference, string)>();
+        var digestMismatches = false;
 
         await Parallel.ForEachAsync(chartConfig.Dependencies, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount, chartConfig.Dependencies.Count), CancellationToken = ct }, async (dependency, cancellationToken) =>
         {
@@ -40,29 +41,26 @@ public class ChartManager
                 throw new ArgumentException("Invalid chart reference");
             }
 
-            // Cache folder use to cache new digest or fetch existing ones.
+            // Folder to cache charts digest.
             var cacheRoot = Path.Combine(Path.GetTempPath(), "buildcharts", "oci", "blobs");
             Directory.CreateDirectory(cacheRoot);
 
-            string digest = null;
-            string cachedBlobFilePath = null;
-            var cacheHit = false;
+            // Resolve registry digest to detect new digest and assume version immutability.
+            var digest = await OrasClient.GetManifestDigestAsync(reference, cancellationToken);
 
-            if (useLockFile && chartLock != null)
+            if (useLockFile)
             {
-                // Check existing Chart.lock for digest, to force update pass an empty chart lock file.
+                // Verify digest in lock file and registry.
                 var lockEntry = FindChartLockDependencyForCache(chartLock, chartReference);
-                digest = lockEntry?.Digest;
-                cacheHit = TryGetBlobCacheForDigest(digest, cacheRoot, out cachedBlobFilePath);
+                if (lockEntry != null && (string.IsNullOrWhiteSpace(lockEntry.Digest) || !string.Equals(lockEntry.Digest, digest, StringComparison.OrdinalIgnoreCase)))
+                {
+                    Console.Error.WriteLine($"Digest mismatch for {chartReference.ChartName}@{chartReference.Tag}: Chart.lock={lockEntry?.Digest ?? "NULL"}, registry={digest}");
+                    digestMismatches = true;
+                    return;
+                }
             }
-
-            if (!cacheHit)
-            {
-                // Fetch manifest digest to see if the blob is already cached locally.
-                digest = await OrasClient.GetManifestDigestAsync(reference, cancellationToken);
-                cacheHit = TryGetBlobCacheForDigest(digest, cacheRoot, out cachedBlobFilePath);
-            }
-
+            
+            var cacheHit = TryGetBlobCacheForDigest(digest, cacheRoot, out var cachedBlobFilePath);
             if (cacheHit)
             {
                 Console.WriteLine($"Pulled: {chartReference.Registry}/{chartReference.RepositoryPath}:{chartReference.Tag} ({new FileInfo(cachedBlobFilePath).Length} bytes) (cached)");
@@ -81,7 +79,12 @@ public class ChartManager
 
             results.Add((chartReference, digest));
         });
-  
+
+        if (digestMismatches)
+        {
+            throw new InvalidOperationException("Chart.lock is out of sync (digest mismatch). Run `buildcharts update` to refresh.");
+        }
+
         if (useLockFile)
         {
             await UpdateChartLockAsync(chartLock, results, ct);
