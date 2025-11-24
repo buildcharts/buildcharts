@@ -33,11 +33,6 @@ RUN --mount=type=secret,id=VSS_NUGET_ACCESSTOKEN,env=VSS_NUGET_ACCESSTOKEN \
 # Copy code.
 COPY --link . .
 
-# Optional: Allow git operations to operate on the repository. Recent versions of git require the .git folder to be owned by the same user.
-# - This can be skipped when no git-operations in dockerfiles.
-RUN git -C /src config core.autocrlf false \
-    && git -C /src checkout-index -f --all
-
 # Execute build.
 RUN --mount=type=secret,id=VSS_NUGET_ACCESSTOKEN,env=VSS_NUGET_ACCESSTOKEN \
     --mount=type=secret,id=VSS_NUGET_EXTERNAL_FEED_ENDPOINTS,env=VSS_NUGET_EXTERNAL_FEED_ENDPOINTS \
