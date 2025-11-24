@@ -1,4 +1,4 @@
-using BuildCharts.Tool.Chart;
+﻿using BuildCharts.Tool.Chart;
 using BuildCharts.Tool.Configuration;
 using BuildCharts.Tool.Configuration.Models;
 using McMaster.Extensions.CommandLineUtils;
@@ -37,7 +37,11 @@ public class UpdateCommand
 
             Console.WriteLine($"Updating {chartConfig.Dependencies.Count} dependencies...");
             await ChartManager.UpdateAsync(chartConfig, chartLock, ct: ct);
-            Console.WriteLine("Dependency update complete. Chart.lock is up to date.");
+
+            Console.WriteLine("");
+            Console.WriteLine("✅ Generated files:");
+            Console.WriteLine($"   • \u001b[2m{ConfigurationManager.CHART_LOCK_PATH}\u001b[22m");
+
             return 0;
         }
         catch (Exception ex)

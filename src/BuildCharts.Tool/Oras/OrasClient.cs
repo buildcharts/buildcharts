@@ -144,7 +144,7 @@ public static class OrasClient
             var (_, chartConfig) = await ConfigurationManager.ReadChartConfigAsync(ct);
             var (_, chartLock) = await ConfigurationManager.ReadChartLockAsync(ct);
 
-            var mismatches = CalculateChartLockMismatches(chartConfig, chartLock);
+            var mismatches = ChartValidator.CalculateChartLockMismatches(chartConfig, chartLock);
             if (mismatches.Count > 0)
             {
                 Console.WriteLine("Warning: Chart.lock is out of sync with charts/buildcharts/Chart.yaml:");
@@ -163,76 +163,4 @@ public static class OrasClient
         }
     }
 
-    private static List<string> CalculateChartLockMismatches(ChartConfig chartConfig, ChartLock chartLock)
-    {
-        var issues = new List<string>();
-        var configDependencies = chartConfig?.Dependencies ?? new List<ChartDependency>();
-        var lockDependencies = chartLock?.Dependencies ?? new List<ChartLockDependency>();
-
-        var normalizedLockDeps = lockDependencies
-            .Select(ld => new
-            {
-                Dependency = ld,
-                Repository = NormalizeRepository(ld.Repository),
-            })
-            .ToList();
-
-        foreach (var dependency in configDependencies)
-        {
-            var expectedRepo = NormalizeRepository(BuildRepository(dependency));
-            if (string.IsNullOrWhiteSpace(expectedRepo))
-            {
-                continue;
-            }
-
-            var lockEntry = normalizedLockDeps
-                .FirstOrDefault(ld =>
-                    string.Equals(ld.Repository, expectedRepo, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(ld.Dependency.Name, dependency.Name, StringComparison.OrdinalIgnoreCase))
-                ?.Dependency;
-
-            if (lockEntry == null)
-            {
-                issues.Add($"Missing entry for {dependency.Name}@{dependency.Version} ({expectedRepo})");
-                continue;
-            }
-
-            if (!string.Equals(lockEntry.Version, dependency.Version, StringComparison.OrdinalIgnoreCase))
-            {
-                issues.Add($"Version mismatch for {dependency.Name}: Chart.yaml={dependency.Version}, Chart.lock={lockEntry.Version}");
-            }
-        }
-
-        foreach (var lockDep in normalizedLockDeps)
-        {
-            var hasMatch = configDependencies.Any(dep =>
-                string.Equals(NormalizeRepository(BuildRepository(dep)), lockDep.Repository, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(dep.Name, lockDep.Dependency.Name, StringComparison.OrdinalIgnoreCase));
-
-            if (!hasMatch)
-            {
-                issues.Add($"Orphaned lock entry {lockDep.Dependency.Name}@{lockDep.Dependency.Version} ({lockDep.Dependency.Repository})");
-            }
-        }
-
-        return issues;
-    }
-
-    private static string BuildRepository(ChartDependency dependency)
-    {
-        if (dependency == null || string.IsNullOrWhiteSpace(dependency.Repository) || string.IsNullOrWhiteSpace(dependency.Name))
-        {
-            return string.Empty;
-        }
-
-        var baseRepo = dependency.Repository.Trim().TrimEnd('/');
-        return $"{baseRepo}/{dependency.Name}".TrimEnd('/');
-    }
-
-    private static string NormalizeRepository(string repository)
-    {
-        return string.IsNullOrWhiteSpace(repository)
-            ? string.Empty
-            : repository.Trim().TrimEnd('/');
-    }
 }
