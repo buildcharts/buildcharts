@@ -15,7 +15,7 @@ namespace BuildCharts.Tool.Chart;
 
 public class ChartManager
 {
-    public static async Task UpdateAsync(ChartConfig chartConfig, ChartLock chartLock, string outputDir = ".buildcharts", CancellationToken ct = default)
+    public static async Task UpdateAsync(ChartConfig chartConfig, ChartLock chartLock, string outputDir = ".buildcharts", bool useLockFile = true, CancellationToken ct = default)
     {
         if (chartConfig.Dependencies == null || chartConfig.Dependencies.Count == 0)
         {
@@ -44,10 +44,26 @@ public class ChartManager
             var cacheRoot = Path.Combine(Path.GetTempPath(), "buildcharts", "oci", "blobs");
             Directory.CreateDirectory(cacheRoot);
 
-            // Check existing Chart.lock for digest, to force update pass an empty chart lock file.
-            var digest = chartLock == null ? null : FindChartLockDependency(chartLock, chartReference)?.Digest;
-            var existsInCache = TryGetBlobCacheForDigest(digest, cacheRoot, out var cachedBlobFilePath);
-            if (existsInCache)
+            string digest = null;
+            string cachedBlobFilePath = null;
+            var cacheHit = false;
+
+            if (useLockFile && chartLock != null)
+            {
+                // Check existing Chart.lock for digest, to force update pass an empty chart lock file.
+                var lockEntry = FindChartLockDependencyForCache(chartLock, chartReference);
+                digest = lockEntry?.Digest;
+                cacheHit = TryGetBlobCacheForDigest(digest, cacheRoot, out cachedBlobFilePath);
+            }
+
+            if (!cacheHit)
+            {
+                // Fetch manifest digest to see if the blob is already cached locally.
+                digest = await OrasClient.GetManifestDigestAsync(reference, cancellationToken);
+                cacheHit = TryGetBlobCacheForDigest(digest, cacheRoot, out cachedBlobFilePath);
+            }
+
+            if (cacheHit)
             {
                 Console.WriteLine($"Pulled: {chartReference.Registry}/{chartReference.RepositoryPath}:{chartReference.Tag} ({new FileInfo(cachedBlobFilePath).Length} bytes) (cached)");
                 Console.WriteLine($"Digest: {digest} (cached)");
@@ -66,23 +82,36 @@ public class ChartManager
             results.Add((chartReference, digest));
         });
   
-        await UpdateChartLockAsync(chartLock, results, ct);
+        if (useLockFile)
+        {
+            await UpdateChartLockAsync(chartLock, results, ct);
+        }
     }
 
-    private static ChartLockDependency FindChartLockDependency(ChartLock chartLock, ChartReference chartReference)
+    private static ChartLockDependency FindChartLockDependencyForCache(ChartLock chartLock, ChartReference chartReference)
     {
-        var dependency = chartLock.Dependencies
-            .Where(x => string.Equals(x.Name, chartReference.ChartName))
-            .Where(x => string.Equals(x.Repository, chartReference.RepositoryFullPath))
-            .FirstOrDefault();
-        return dependency;
+        var targetRepository = NormalizeRepository(chartReference.RepositoryFullPath);
+        return chartLock.Dependencies
+            .FirstOrDefault(x =>
+                string.Equals(x.Name, chartReference.ChartName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(x.Version, chartReference.Tag, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(NormalizeRepository(x.Repository), targetRepository, StringComparison.OrdinalIgnoreCase));
     }
-    
+
+    private static ChartLockDependency FindChartLockDependencyForUpdate(ChartLock chartLock, ChartReference chartReference)
+    {
+        var targetRepository = NormalizeRepository(chartReference.RepositoryFullPath);
+        return chartLock.Dependencies
+            .FirstOrDefault(x =>
+                string.Equals(x.Name, chartReference.ChartName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(NormalizeRepository(x.Repository), targetRepository, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static async Task UpdateChartLockAsync(ChartLock chartLock, ConcurrentBag<(ChartReference, string)> result, CancellationToken ct)
     {
         foreach (var (chartReference, digest) in result.OrderBy(x => x.Item1.ChartName))
         {
-            var dependency = FindChartLockDependency(chartLock, chartReference);
+            var dependency = FindChartLockDependencyForUpdate(chartLock, chartReference);
             if (dependency == null)
             {
                 dependency = new ChartLockDependency
@@ -123,5 +152,12 @@ public class ChartManager
         path = Path.Combine(cacheRoot, digestValue);
 
         return File.Exists(path);
+    }
+
+    private static string NormalizeRepository(string repository)
+    {
+        return string.IsNullOrWhiteSpace(repository)
+            ? string.Empty
+            : repository.Trim().TrimEnd('/');
     }
 }

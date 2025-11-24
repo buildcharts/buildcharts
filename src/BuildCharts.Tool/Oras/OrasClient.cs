@@ -96,6 +96,30 @@ public static class OrasClient
         }
     }
 
+    public static async Task<string> GetManifestDigestAsync(string reference, CancellationToken ct = default)
+    {
+        if (!ChartReference.TryParse(reference, out var chartReference))
+        {
+            throw new ArgumentException("Invalid chart reference");
+        }
+
+        var client = new Client
+        {
+            CredentialProvider = await DockerCredentialHelper.GetCredentialAsync(chartReference.Registry),
+        };
+
+        var orasRepository = new Repository(new RepositoryOptions
+        {
+            Client = client,
+            Reference = new Reference(chartReference.Registry, chartReference.RepositoryPath),
+        });
+
+        var (manifestDescriptor, manifestStream) = await orasRepository.Manifests.FetchAsync(chartReference.Tag, ct);
+        await manifestStream.DisposeAsync();
+
+        return manifestDescriptor.Digest;
+    }
+
     private static async Task EnsureChartLockSyncAsync(CancellationToken ct)
     {
         if (_lockSyncChecked)

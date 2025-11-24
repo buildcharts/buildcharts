@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace BuildCharts.Tool.Commands;
 
-[Command(Name = "buildcharts")]
+[Command(Name = "buildcharts", Description = "buildcharts CLI tool")]
 [Subcommand(typeof(GenerateCommand))]
 [Subcommand(typeof(InitCommand))]
 [Subcommand(typeof(PullCommand))]

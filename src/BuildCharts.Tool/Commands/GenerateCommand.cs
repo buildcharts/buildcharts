@@ -1,5 +1,6 @@
 ﻿using BuildCharts.Tool.Chart;
 using BuildCharts.Tool.Configuration;
+using BuildCharts.Tool.Configuration.Models;
 using BuildCharts.Tool.Generate;
 using BuildCharts.Tool.Plugins;
 using McMaster.Extensions.CommandLineUtils;
@@ -13,8 +14,11 @@ namespace BuildCharts.Tool.Commands;
 [Command(Name = "generate", Description = "Generate build using declarative metadata")]
 public class GenerateCommand
 {
-    [Argument(0, Name = "use-inline-dockerfiles", Description = "Use inlined dockerfiles")]
+    [Option("--use-inline-dockerfiles", Description = "Use inlined dockerfiles instead of referencing external Dockerfiles.")]
     public bool UseInlineDockerFile { get; set; } = false;
+
+    [Option("--use-lock-file", Description = "Enables chart lock file to be generated and used when pulling charts.")]
+    public bool UseLockFile { get; set; } = false;
 
     private readonly DockerHclGenerator _dockerHclGenerator = new();
 
@@ -32,8 +36,8 @@ public class GenerateCommand
                 Console.Error.WriteLine($"Error: Could not find {ConfigurationManager.CHART_CONFIG_PATH}. Run this command from the repository root.");
                 return 1;
             }
-
-            if (!File.Exists(ConfigurationManager.CHART_LOCK_PATH))
+          
+            if (!File.Exists(ConfigurationManager.CHART_LOCK_PATH) && UseLockFile)
             {
                 var lockDir = Path.GetDirectoryName(ConfigurationManager.CHART_LOCK_PATH);
                 if (!string.IsNullOrWhiteSpace(lockDir))
@@ -45,13 +49,13 @@ public class GenerateCommand
 
             var (_, buildConfig) = await ConfigurationManager.ReadBuildConfigAsync(ct);
             var (_, chartConfig) = await ConfigurationManager.ReadChartConfigAsync(ct);
-            var (_, chartLock) = await ConfigurationManager.ReadChartLockAsync(ct);
-            
+            var (_, chartLock) = UseLockFile ? await ConfigurationManager.ReadChartLockAsync(ct) : (null, new ChartLock());
+
             ChartValidator.ValidateConfig(buildConfig);
             //await ChartManager.ValidateLockFile(chartConfig, chartLock, ct);
 
             Console.WriteLine("Pulling charts...");
-            await ChartManager.UpdateAsync(chartConfig, chartLock, ct: ct);
+            await ChartManager.UpdateAsync(chartConfig, chartLock, useLockFile: UseLockFile, ct: ct);
 
             var plugins = PluginManager.LoadPlugins(buildConfig.Plugins);
             foreach (var plugin in plugins)
@@ -74,6 +78,11 @@ public class GenerateCommand
             Console.WriteLine("");
             Console.WriteLine("✅ Generated files:");
             Console.WriteLine("   • \u001b[2mdocker-bake.hcl\u001b[22m");
+            if (!File.Exists(ConfigurationManager.CHART_LOCK_PATH) && UseLockFile)
+            {
+                Console.WriteLine($"   • \u001b[2m{ConfigurationManager.CHART_LOCK_PATH}\u001b[22m");
+            }
+
             Console.WriteLine("");
 
             return 0;
