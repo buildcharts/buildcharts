@@ -1,5 +1,5 @@
-variable "VERSION" {}
-variable "COMMIT" {}
+variable "VERSION" { default = "1.0.0-local" }
+variable "COMMIT" { default = "0000000000000000000000000000000000000000" }
 
 target "_common" {
   args = {

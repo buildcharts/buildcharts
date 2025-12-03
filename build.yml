@@ -1,9 +1,9 @@
 version: v1beta
 
 variables:
-  - VERSION
-  - COMMIT
-
+  VERSION: "1.0.0-local"
+  COMMIT: "0000000000000000000000000000000000000000"
+  
 targets:
   buildcharts.sln:
     type: build

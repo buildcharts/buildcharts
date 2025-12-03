@@ -8,7 +8,7 @@ ARG VERSION
 ARG CONFIGURATION=Release
 ARG PATHS_INCLUDE
 
-# Follow this to for SourceLink + deterministic NuGet packages:
+# Follow this for SourceLink + deterministic NuGet packages:
 # - Ensure '.dockerignore' does NOT list '.git'  (when not folloing the minimal metadata guide in docs).
 # - Ensure '.dockerignore' does NOT list '.gitignore' (so bin/ and obj/ are ignored correctly).
 # - Ensure 'bin/' and 'obj/' are in .gitignore.
@@ -22,7 +22,9 @@ ARG PATHS_INCLUDE
 RUN set -eu; \
     echo "Verifying SourceLink prerequisites" >&2; \
     root="/src"; \
+    warnings=0; \
     if [ ! -f "$root/.gitignore" ]; then \
+      warnings=1; \
       echo "WARNING: .gitignore is missing inside the container (expected at: $root/.gitignore)." >&2; \
       echo "         Reason: .gitignore is probably listed in .dockerignore, so it was not copied into the build context." >&2; \
       echo "         Impact: bin/ and obj/ may be treated as untracked sources and can break SourceLink/deterministic validation." >&2; \
@@ -39,16 +41,23 @@ RUN set -eu; \
         ' "$root/.gitignore"; \
       }; \
       if ! has_ignore_rule "bin/"; then \
+        warnings=1; \
         echo "WARNING: 'bin/' is not ignored in .gitignore inside the container." >&2; \
         echo "         Impact: build outputs under 'bin/' may be treated as tracked/untracked sources." >&2; \
         echo "         Fix:    Add 'bin/' to the root .gitignore and commit the change." >&2; \
       fi; \
       if ! has_ignore_rule "obj/"; then \
+        warnings=1; \
         echo "WARNING: 'obj/' is not ignored in .gitignore inside the container." >&2; \
         echo "         Impact: SourceLink and deterministic builds may treat files in 'obj/' as sources" >&2; \
         echo "                 (e.g. validation errors like 'contains untracked obj')." >&2; \
         echo "         Fix:    Add 'obj/' to the root .gitignore and commit the change." >&2; \
       fi; \
+    fi; \
+    if [ "$warnings" -eq 0 ]; then \
+      echo "SourceLink prerequisites OK" >&2; \
+    else \
+      echo "SourceLink prerequisites completed with warnings" >&2; \
     fi
 
 # Pack the code into a nuget package when changes are detected.

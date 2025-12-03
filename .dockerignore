@@ -1,6 +1,6 @@
 .dockerignore
 .env
-#.git # needed for sourcelink when building the image inside docker
+.git # needed for sourcelink when building the image inside docker
 .gitignore
 .vs
 .vscode
