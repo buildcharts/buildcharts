@@ -156,9 +156,10 @@ Templates support:
 - https://docs.docker.com/build/concepts/context/#git-repositories
 - https://docs.docker.com/build/cache/backends/registry/
 - https://docs.docker.com/guides/bake/#exporting-build-artifacts
-- https://github.com/docker/metadata-action?tab=readme-ov-file
-- https://github.com/moby/buildkit/blob/master/.github/workflows/buildkit.yml
 - https://github.com/docker/buildx/issues/1991
+- https://github.com/docker/metadata-action?tab=readme-ov-file
+- https://github.com/microsoft/azure-pipelines-tasks/blob/master/docs/authoring/commands.md
+- https://github.com/moby/buildkit/blob/master/.github/workflows/buildkit.yml
 
 ## CLI
 
