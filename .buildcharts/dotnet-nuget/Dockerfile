@@ -8,8 +8,8 @@ ARG VERSION
 ARG CONFIGURATION=Release
 ARG PATHS_INCLUDE
 
-# Follow this to for SourceLink + deterministic NuGet packages:
-# - Ensure '.dockerignore' does NOT list '.git'  (when not folloing the minimal metadata guide in docs).
+# Follow this for SourceLink + deterministic NuGet packages:
+# - Ensure '.dockerignore' does NOT list '.git' (when not following the minimal git repository metadata guide in docs).
 # - Ensure '.dockerignore' does NOT list '.gitignore' (so bin/ and obj/ are ignored correctly).
 # - Ensure 'bin/' and 'obj/' are in .gitignore.
 # - Add this to your .csproj:
@@ -17,16 +17,24 @@ ARG PATHS_INCLUDE
 #     <PublishRepositoryUrl>true</PublishRepositoryUrl>
 # - Add this to your .csproj to include PDBs in the package (when not using symbol packages):
 #     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
-# Verify .gitignore / bin / obj configuration for SourceLink-friendly NuGet packages (non-fatal)
 
 RUN set -eu; \
     echo "Verifying SourceLink prerequisites" >&2; \
     root="/src"; \
+    warnings=0; \
+    if [ ! -d "$root/.git" ] && [ ! -f "$root/.git" ]; then \
+      warnings=1; \
+      echo "warning: .git is missing inside the container (expected at: $root/.git)." >&2; \
+      echo "- reason: .git is probably listed in .dockerignore, so it was not copied into the build context." >&2; \
+      echo "- impact: SourceLink cannot embed repository metadata and deterministic validation may fail." >&2; \
+      echo "- fix:    Remove '.git' from .dockerignore and rebuild the image." >&2; \
+    fi; \
     if [ ! -f "$root/.gitignore" ]; then \
-      echo "WARNING: .gitignore is missing inside the container (expected at: $root/.gitignore)." >&2; \
-      echo "         Reason: .gitignore is probably listed in .dockerignore, so it was not copied into the build context." >&2; \
-      echo "         Impact: bin/ and obj/ may be treated as untracked sources and can break SourceLink/deterministic validation." >&2; \
-      echo "         Fix:    Remove '.gitignore' from .dockerignore and rebuild the image." >&2; \
+      warnings=1; \
+      echo "warning: .gitignore is missing inside the container (expected at: $root/.gitignore)." >&2; \
+      echo "- reason: .gitignore is probably listed in .dockerignore, so it was not copied into the build context." >&2; \
+      echo "- impact: bin/ and obj/ may be treated as untracked sources and can break SourceLink/deterministic validation." >&2; \
+      echo "- fix:    Remove '.gitignore' from .dockerignore and rebuild the image." >&2; \
     else \
       has_ignore_rule() { \
         pattern="$1"; \
@@ -39,39 +47,51 @@ RUN set -eu; \
         ' "$root/.gitignore"; \
       }; \
       if ! has_ignore_rule "bin/"; then \
-        echo "WARNING: 'bin/' is not ignored in .gitignore inside the container." >&2; \
-        echo "         Impact: build outputs under 'bin/' may be treated as tracked/untracked sources." >&2; \
-        echo "         Fix:    Add 'bin/' to the root .gitignore and commit the change." >&2; \
+        warnings=1; \
+        echo "warning: 'bin/' is not ignored in .gitignore inside the container." >&2; \
+        echo "- impact: build outputs under 'bin/' may be treated as tracked/untracked sources." >&2; \
+        echo "- fix:    Add 'bin/' to the root .gitignore and commit the change." >&2; \
       fi; \
       if ! has_ignore_rule "obj/"; then \
-        echo "WARNING: 'obj/' is not ignored in .gitignore inside the container." >&2; \
-        echo "         Impact: SourceLink and deterministic builds may treat files in 'obj/' as sources" >&2; \
-        echo "                 (e.g. validation errors like 'contains untracked obj')." >&2; \
-        echo "         Fix:    Add 'obj/' to the root .gitignore and commit the change." >&2; \
+        warnings=1; \
+        echo "warning: 'obj/' is not ignored in .gitignore inside the container." >&2; \
+        echo "- impact: SourceLink and deterministic builds may treat files in 'obj/' as sources (e.g. validation errors like 'contains untracked obj')." >&2; \
+        echo "- fix:    Add 'obj/' to the root .gitignore and commit the change." >&2; \
       fi; \
+    fi; \
+    if [ "$warnings" -eq 0 ]; then \
+      echo "SourceLink prerequisites OK" >&2; \
+    else \
+      echo "SourceLink prerequisites completed with warnings" >&2; \
+      exit 1; \
     fi
+
+RUN set -eu; \
+    PATHS_INCLUDE="${PATHS_INCLUDE:-}"; \
+    if [ -n "$PATHS_INCLUDE" ]; then \
+        echo "Detecting changes in $PATHS_INCLUDE when comparing to origin/HEAD" >&2; \
+        if git -C /src diff --quiet --exit-code origin/HEAD -- $PATHS_INCLUDE; then \
+            mkdir -p /output; \
+            echo "No changes detected. Skipping nuget pack..." >&2; \
+            exit 0; \
+        else \
+            echo "Changes detected" >&2; \
+        fi; \
+    # Optional: Enable this to only pack nuget if there are changes in the $BUILDCHARTS_DIR when comparing to origin/HEAD.
+    # else \
+    #     echo "Detecting changes in  $BUILDCHARTS_DIR when comparing to origin/HEAD" >&2; \
+    #     BUILDCHARTS_DIR="$(dirname "$BUILDCHARTS_SRC")"; \
+    #     if git -C /src diff --quiet --exit-code origin/HEAD -- "$BUILDCHARTS_DIR"; then \
+    #         mkdir -p /output; \
+    #         echo "No changes detected. Skipping nuget pack..." >&2; \
+    #         exit 0; \
+    #     else \
+    #         echo "Changes detected" >&2; \
+    #     fi; \
+    fi;
 
 # Pack the code into a nuget package when changes are detected.
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
-    mkdir -p /output; \
-    BUILDCHARTS_DIR="$(dirname "$BUILDCHARTS_SRC")"; \
-    if [ -n "$PATHS_INCLUDE" ]; then \
-        if git -C /src diff --quiet --exit-code origin/HEAD -- $PATHS_INCLUDE; then \
-            echo "No changes detected in $PATHS_INCLUDE when comparing to origin/HEAD"; \
-            echo "Skipping nuget pack"; \
-            exit 0; \
-        else \
-            echo "Changes detected in $PATHS_INCLUDE."; \
-        fi; \
-    # else \
-    #     if git -C /src diff --quiet --exit-code origin/HEAD -- "$BUILDCHARTS_DIR"; then \
-    #         echo "No changes detected in $BUILDCHARTS_DIR when comparing to origin/HEAD"; \
-    #         echo "Skipping nuget pack"; \
-    #         exit 0; \
-    #     else \
-    #         echo "Changes detected in $BUILDCHARTS_DIR."; \
-    #     fi; \
-    fi; \
     dotnet pack "/src/$BUILDCHARTS_SRC" \
         --no-build \
         --configuration "$CONFIGURATION" \

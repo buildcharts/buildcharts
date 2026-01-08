@@ -19,7 +19,7 @@ ARG COMMIT
 RUN curl -L https://raw.githubusercontent.com/Microsoft/artifacts-credprovider/master/helpers/installcredprovider.sh | sh
 
 # Copy project files and restore as distinct layer.
-COPY --link --parents *.sln **/*.csproj **/NuGet.Config **/Directory.Build.props **/Directory.Build.targets **/Directory.Packages.props global.json ./
+COPY --link --parents *.sln **/*.csproj **/*.dcproj **/NuGet.Config **/Directory.Build.props **/Directory.Build.targets **/Directory.Packages.props global.json ./
 
 # Optional: Clean is only needed when bin/obj folders are NOT included in .dockerignore, which is best practice, so we skip it.
 #RUN dotnet clean 
