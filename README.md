@@ -5,6 +5,9 @@
 
 `buildcharts` is a framework for defining and generating CI/CD pipelines using declarative metadata (`build.yml`) and templated pipeline definitions stored as OCI artifacts (similar to Helm charts). Enabling scalable, centralized, and consistent build processes.
 
+> [!NOTE]
+> For project assessment and rationale, see [docs/assessment.md](docs/assessment.md).
+
 ### Features
 - **Scaling**: Handle 100+ microservices with shared pipeline logic.
 - **Control**: Centralize logic or custom validation to all builds.
@@ -172,7 +175,6 @@ buildcharts
   init         # scaffold
   update       # resolve templates + create lock
   generate     # render CI/CD pipelines
-  run          # trigger or test the pipelines
   diff         # show changes vs lock
   validate     # schema and template check
   clean        # remove generated artifacts
@@ -184,6 +186,7 @@ buildcharts
 
 ## Documentation
 
+- [docs/assessment.md](docs/assessment.md) – Assessment and rationale
 - [docs/cli.md](docs/cli.md) – CLI Tool
 - [docs/build.yml.md](docs/build.yml.md) – Metadata specification
 - [docs/plugins.md](docs/plugins.md) – Plugin system
