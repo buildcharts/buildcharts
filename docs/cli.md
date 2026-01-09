@@ -4,9 +4,8 @@ Supports dynamic generation at runtime (e.g., pipeline generates new pipelines v
 ```bash
 buildcharts
   init         # scaffold
-  update       # resolve templates + create lock
+  update       # resolve chart dependencies + update lock
   generate     # render CI/CD pipelines
-  run          # trigger or test the pipelines
   diff         # show changes vs lock
   validate     # schema and template check
   clean        # remove generated artifacts
@@ -64,7 +63,7 @@ Digest: sha256:f8fa3e928f25cc651f541a408222978941cde466beaaae7e60be6b5b1ca02ff9
 
 ### `buildcharts generate`
 
-Generates build pipeline using metadata. Outputs a Docker bake file `.buildcharts/docker-bake.hcl`.
+Generates build pipeline using metadata. Outputs a Docker bake file `.buildcharts/docker-bake.hcl`. It also validates `Chart.yaml` digests by comparing them to chart tags, and cleans the `.buildcharts` folder to keep a clean state.
 
 ```console
 # buildcharts generate
@@ -82,11 +81,39 @@ Digest: sha256:6b6b99dd94c8b9f388890770fc3f1249c07561c9347d9eb98802c3bf44fbf47a
    • docker-bake.hcl
 ```
 
-### `buildcharts run`
+### `buildcharts update`
 
-Triggers docker buildx bake on the generated `docker-bake.hcl`.
+Resolves chart dependencies from `charts/buildcharts/Chart.yaml` and updates `charts/buildcharts/Chart.lock`.
 
- - `$env:VERSION="1.2.3"; $env:COMMIT="abc123"; docker buildx bake --file .buildcharts/docker-bake.hcl`
+```console
+# buildcharts update
+Updating 4 dependencies...
+Pulled: registry-1.docker.io/buildcharts/dotnet-build:0.0.1 (1111 bytes) (cached)
+Digest: sha256:ca7e6c16d053721518ebf6186c5c0663ed870c14c2eda6b0f62588b49b2a1ab6 (cached)
+Pulled: registry-1.docker.io/buildcharts/dotnet-test:0.0.1 (900 bytes) (cached)
+Digest: sha256:ab2b1d00fbc03f0300d2b10a78ed60ee8615e6bcafc60222083e77ce572583a9 (cached)
+Pulled: registry-1.docker.io/buildcharts/dotnet-nuget:0.0.1 (1853 bytes) (cached)
+Digest: sha256:bab5a1e71c486731e152c55e2aa54eb045921f865441ac948ef8a572346ae21e (cached)
+Pulled: registry-1.docker.io/buildcharts/dotnet-docker:0.0.2 (752 bytes) (cached)
+Digest: sha256:978e3277b9618f6a0a56978b96d0b3fd23246cd77b972b66820c53e145c42de4 (cached)
+
+✅ Generated files:
+   • charts/buildcharts/Chart.lock
+```
+
+### `buildcharts version`
+
+Prints the `buildcharts` CLI version.
+
+```console
+# buildcharts version
+buildcharts
+ version:       1.0.0+a882a7c19eb72f60a9cf1da3a4aee00691bdc4ba
+ built:         2026-01-09T01:55:30Z
+ os/arch:       Microsoft Windows 10.0.26200/x64
+ cpu/mem:       32 cores/127.65 GB
+ .NET version:  10.0.1
+```
 
 ### `buildcharts summary`
 
