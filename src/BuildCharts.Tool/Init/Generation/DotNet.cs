@@ -1,5 +1,4 @@
-﻿using BuildCharts.Tool.Summary.Extensions;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -31,6 +30,7 @@ public static class DotNet
         sb.AppendLine("targets:");
         
         var slnFile = Directory.GetFiles(".", "*.sln", SearchOption.AllDirectories).FirstOrDefault()
+                      ?? Directory.GetFiles(".", "*.slnx", SearchOption.AllDirectories).FirstOrDefault()
                       ?? throw new FileNotFoundException("No .sln file found in the root or src directory.");
 
         var slnRelPath = Path.GetRelativePath(Directory.GetCurrentDirectory(), slnFile).Replace("\\", "/");
