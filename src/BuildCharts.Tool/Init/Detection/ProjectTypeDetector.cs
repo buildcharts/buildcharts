@@ -9,7 +9,9 @@ public static class ProjectTypeDetector
 {
     public static Task<ProjectType> DetectAsync(CancellationToken ct)
     {
-        var sln = Directory.GetFiles(".", "*.sln", SearchOption.AllDirectories).FirstOrDefault();
+        var sln = Directory.GetFiles(".", "*.sln", SearchOption.AllDirectories).FirstOrDefault()
+            ?? Directory.GetFiles(".", "*.slnx", SearchOption.AllDirectories).FirstOrDefault();
+
         if (sln != null)
         {
             return Task.FromResult(ProjectType.DotNet);
