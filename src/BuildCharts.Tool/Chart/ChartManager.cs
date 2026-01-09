@@ -15,7 +15,7 @@ namespace BuildCharts.Tool.Chart;
 
 public class ChartManager
 {
-    public static async Task UpdateAsync(ChartConfig chartConfig, ChartLock chartLock, string outputDir = ".buildcharts", bool useLockFile = true, CancellationToken ct = default)
+    public static async Task UpdateAsync(ChartConfig chartConfig, ChartLock chartLock, string outputDir = ".buildcharts", bool useLockFile = true, bool updateChartLockFile = true, CancellationToken ct = default)
     {
         if (chartConfig.Dependencies == null || chartConfig.Dependencies.Count == 0)
         {
@@ -85,12 +85,11 @@ public class ChartManager
             throw new InvalidOperationException("Chart.lock is out of sync (digest mismatch). Run `buildcharts update` to refresh.");
         }
 
-        if (useLockFile)
+        if (updateChartLockFile)
         {
             await UpdateChartLockAsync(chartLock, results, ct);
         }
     }
-
     private static ChartLockDependency FindChartLockDependencyForCache(ChartLock chartLock, ChartReference chartReference)
     {
         var targetRepository = NormalizeRepository(chartReference.RepositoryFullPath);
@@ -133,7 +132,7 @@ public class ChartManager
                 dependency.Digest = digest;
             }
         }
-        
+
         await ConfigurationManager.SaveChartLockAsync(chartLock, ct);
     }
 

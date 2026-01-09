@@ -17,8 +17,8 @@ public class GenerateCommand
     [Option("--use-inline-dockerfiles", Description = "Use inlined dockerfiles instead of referencing external Dockerfiles.")]
     public bool UseInlineDockerFile { get; set; } = false;
 
-    [Option("--use-lock-file", Description = "Enables chart lock file to be generated and used when pulling charts.")]
-    public bool UseLockFile { get; set; } = false;
+    [Option("--ignore-lock", Description = "Ignore the chart lock file when validating chart digests.")]
+    public bool IgnoreLockFile { get; set; } = false;
 
     private readonly DockerHclGenerator _dockerHclGenerator = new();
 
@@ -37,21 +37,17 @@ public class GenerateCommand
                 return 1;
             }
           
-            if (!File.Exists(ConfigurationManager.CHART_LOCK_PATH) && UseLockFile)
-            {
-                Console.Error.WriteLine($"Error: Could not find {ConfigurationManager.CHART_LOCK_PATH}. Run `buildcharts update` to refresh the lock file.");
-                return 1;
-            }
+            var useLockFile = File.Exists(ConfigurationManager.CHART_LOCK_PATH) && !IgnoreLockFile;
 
             var (_, buildConfig) = await ConfigurationManager.ReadBuildConfigAsync(ct);
             var (_, chartConfig) = await ConfigurationManager.ReadChartConfigAsync(ct);
-            var (_, chartLock) = UseLockFile ? await ConfigurationManager.ReadChartLockAsync(ct) : (null, new ChartLock());
+            var (_, chartLock) = useLockFile ? await ConfigurationManager.ReadChartLockAsync(ct) : (null, new ChartLock());
 
             await ChartValidator.ValidateConfigAsync(buildConfig);
-            await ChartValidator.ValidateLockFileAsync(chartConfig, chartLock, UseLockFile, ct);
+            await ChartValidator.ValidateLockFileAsync(chartConfig, chartLock, useLockFile, ct);
 
             Console.WriteLine("Pulling charts...");
-            await ChartManager.UpdateAsync(chartConfig, chartLock, useLockFile: UseLockFile, ct: ct);
+            await ChartManager.UpdateAsync(chartConfig, chartLock, useLockFile: useLockFile, updateChartLockFile: false, ct: ct);
 
             var plugins = PluginManager.LoadPlugins(buildConfig.Plugins);
             foreach (var plugin in plugins)
