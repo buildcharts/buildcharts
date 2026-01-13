@@ -32,19 +32,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # - name: Docker build and test
-      #   uses: docker/bake-action@v6
-      #   with:
-      #     targets: build
-      #     source: .
-      #     files: .buildcharts/docker-build.hcl
-      #     # set: |
-      #     #   _common.cache-from=type=gha,scope=buildcharts
-      #     #   _common.cache-to=type=gha,scope=buildcharts,mode=max
-      #   env:
-      #     VERSION: ${{ inputs.version }}
-      #     COMMIT:  ${{ inputs.commit }}
-
       - name: Docker build and test
         uses: docker/bake-action@v6
         with:
