@@ -80,8 +80,13 @@ src/Project/Project.csproj:
 This is equivalent to the list of entries syntax and will be normalized internally.
 
 #### Target properties
-- `type` – The build chart alias to use. Common values include `build`, `test`, `nuget`, and `docker`. 
-- `with` – Optional dictionary passed through to the chart templates. Typical keys are `base` for the base Docker image and `tags` for Docker image tags.
+- `type` - The build chart alias to use. Common values include `build`, `test`, `nuget`, and `docker`. 
+- `with` - Optional dictionary passed through to the chart templates.
+  - `base` - Base image used for the chart's `base` context.
+  - `tags` - Docker image tags (array of strings), used by `docker` targets.
+  - `dockerfile` - Override the Dockerfile path for the chart (defaults to `./.buildcharts/<chart>/Dockerfile`).
+  - `allow` - BuildKit entitlements (array of strings) forwarded to bake, e.g. `network.host` or `security.insecure`.
+  - `args` - Build args map passed to the chart as build arguments.
 
 ## Example
 
@@ -104,6 +109,10 @@ targets:
       with:
         base: mcr.microsoft.com/dotnet/aspnet:9.0
         tags: ["docker.io/buildcharts/buildcharts:${VERSION}-${COMMIT}"]
+        dockerfile: ./Dockerfile.aks
+        allow: ["network.host"]
+        args:
+          RUNTIME: "linux-x64"
 ```
 
 Use `buildcharts generate` to produce `docker-bake.hcl` based on this metadata.
