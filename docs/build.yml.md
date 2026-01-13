@@ -8,13 +8,41 @@ This document describes the structure of `build.yml`, which controls how `buildc
 The metadata version. `latest` is accepted.
 
 ### `variables`
-A list of global variables exposed to pipeline execution. Each item may be just the variable name or `NAME=value` to provide a default.
+A list of global variables exposed to pipeline execution. 
 
-```
+A variable can be defined in different ways:
+
+1. **Sequence of names**
+
+```yaml
 variables:
   - VERSION
   - COMMIT
-  - IMAGE=mcr.microsoft.com/dotnet/aspnet:9.0
+```
+
+2. **Sequence with inline values**
+
+```yaml
+variables:
+  - VERSION: "1.0.0-local"
+  - IMAGE: "mcr.microsoft.com/dotnet/aspnet:9.0"
+```
+
+3. **Sequence with default blocks**
+
+```yaml
+variables:
+  - VERSION:
+      default: "1.0.0-local"
+  - COMMIT: ""
+```
+
+4. **Mapping form**
+
+```yaml
+variables:
+  VERSION: "1.0.0-local"
+  COMMIT: ""
 ```
 
 ### `targets`
