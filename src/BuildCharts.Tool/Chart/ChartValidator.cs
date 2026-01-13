@@ -15,12 +15,12 @@ public static class ChartValidator
         var totalBuildTargets = buildConfig.Targets.SelectMany(x => x.Value).Count(x => x.Type == "build");
         if (totalBuildTargets == 0)
         {
-            throw new InvalidOperationException("Invalid build.yaml - Missing build target.");
+            throw new InvalidOperationException("Invalid build.yml - Missing build target.");
         }
 
         if (totalBuildTargets > 1)
         {
-            throw new InvalidOperationException("Invalid build.yaml - Only 1 build target is supported.");
+            throw new InvalidOperationException("Invalid build.yml - Only 1 build target is supported.");
         }
 
         var supportedTypes = (chartConfig?.Dependencies ?? [])
@@ -41,7 +41,7 @@ public static class ChartValidator
 
             if (unknownTypes.Count > 0)
             {
-                throw new InvalidOperationException($"Invalid build.yaml - Unknown target type(s): {string.Join(", ", unknownTypes)}. Add the type(s) to charts/buildcharts/Chart.yaml or fix build.yml.");
+                throw new InvalidOperationException($"Invalid build.yml - Unknown target type(s): {string.Join(", ", unknownTypes)}. Add the type(s) to charts/buildcharts/Chart.yaml or fix build.yml.");
             }
         }
 

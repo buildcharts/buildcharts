@@ -88,6 +88,21 @@ This is equivalent to the list of entries syntax and will be normalized internal
   - `allow` - BuildKit entitlements (array of strings) forwarded to bake, e.g. `network.host` or `security.insecure`.
   - `args` - Build args map passed to the chart as build arguments.
 
+### `types`
+Optional type-level configuration for any target type.
+
+Type-level settings apply to every target of that `type`. When `matrix` is set, all targets of that type are expanded across the matrix axes, and each axis value is exposed as a build arg (upper snake case) to the chart.
+
+```yaml
+types:
+  publish:
+    matrix:
+      runtime: ["win-x64", "win-arm64"]
+  docker:
+    matrix:
+      platform: ["linux/amd64", "linux/arm64"]
+```
+
 ## Example
 
 ```yaml
@@ -109,7 +124,7 @@ targets:
       with:
         base: mcr.microsoft.com/dotnet/aspnet:9.0
         tags: ["docker.io/buildcharts/buildcharts:${VERSION}-${COMMIT}"]
-        dockerfile: ./Dockerfile.aks
+        dockerfile: ./Dockerfile
         allow: ["network.host"]
         args:
           RUNTIME: "linux-x64"

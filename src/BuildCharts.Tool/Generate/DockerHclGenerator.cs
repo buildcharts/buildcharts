@@ -17,11 +17,10 @@ public class DockerHclGenerator
     {
         var sb = new StringBuilder();
 
-        // Emit variables block
-        foreach (var param in buildConfig.Variables)
+        // Emit variables block.
+        foreach (var (key, definition) in buildConfig.Variables)
         {
-            var name = param.Key.ToUpperInvariant();
-            var definition = param.Value;
+            var name = key.ToUpperInvariant();
             if (!string.IsNullOrEmpty(definition.Default))
             {
                 sb.AppendLine($"variable \"{name}\" {{");
@@ -36,7 +35,7 @@ public class DockerHclGenerator
 
         sb.AppendLine();
 
-        // Emit common target
+        // Emit common target.
         sb.AppendLine("target \"_common\" {");
         sb.AppendLine("  args = {");
 
@@ -49,9 +48,10 @@ public class DockerHclGenerator
         sb.AppendLine("  }");
         sb.AppendLine("}\n");
 
+        // Collect typed targets for output.
         var typedTargets = new List<TypedTarget>();
 
-        // Emit targets as matrix per type
+        // Emit targets as matrix per type.
         var groupedTargetsByType = buildConfig.Targets
             .SelectMany(kvp => kvp.Value.Select(def => new { kvp.Key, def }))
             .GroupBy(x => x.def.Type)
@@ -62,6 +62,7 @@ public class DockerHclGenerator
             var type = targetGroup.Key;
             var chartAlias = chartConfig.Dependencies.FirstOrDefault(d => d.Alias.Equals(type, StringComparison.OrdinalIgnoreCase))?.Name;
             var targets = targetGroup.Select(x => new TargetItem(x.Key, x.def, ExtractArgs(x.def.With))).ToList();
+            var matrixAxes = CollectMatrixAxes(buildConfig, type);
             var argKeys = CollectArgKeys(targets);
 
             var hasArgs = argKeys.Count > 0;
@@ -69,36 +70,58 @@ public class DockerHclGenerator
             var hasBase = targets.Any(x => x.Definition.With.ContainsKey("base"));
             var hasAllow = targets.Any(x => x.Definition.With.ContainsKey("allow"));
             var hasDockerfile = targets.Any(x => x.Definition.With.ContainsKey("dockerfile"));
+            var hasMatrix = matrixAxes.Count > 0;
 
             sb.AppendLine($"target \"{type}\" {{");
             sb.AppendLine($"  inherits = [\"_common\"]");
             sb.AppendLine($"  target = \"{type}\"");
-            sb.AppendLine($"  name = \"${{item.name}}\"");
+
+            if (hasMatrix)
+            {
+                var suffix = string.Join("_", matrixAxes.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).Select(k => $"${{{k}}}"));
+                sb.AppendLine($"  name = \"${{item.name}}_{suffix}\"");
+            }
+            else
+            {
+                sb.AppendLine($"  name = \"${{item.name}}\"");
+            }
 
             if (type == "build")
             {
                 sb.AppendLine("  context = \".\"");
             }
 
-            // Emit output
+            // Emit output.
             sb.AppendLine(type == "docker" ?
                 "  output = [\"type=docker\"]" :
                 "  output = [\"type=cacheonly,mode=max\"]");
 
-            // Emit targets in type matrix
+            // Emit targets in type matrix.
             sb.AppendLine("  matrix = {");
             sb.AppendLine("    item = [");
 
             foreach (var item in targets)
             {
                 var targetName = CreateUniqueName(buildConfig, item.Key, type);
-                typedTargets.Add(new TypedTarget(targetName, type));
+
+                if (matrixAxes.Count == 0)
+                {
+                    typedTargets.Add(new TypedTarget(targetName, type));
+                }
+                else
+                {
+                    // Matrix requires unique target name eg "${item.name}" becomes "${item.name}_$runtime" per variation.
+                    foreach (var expandedName in ExpandTargetNames(targetName, matrixAxes))
+                    {
+                        typedTargets.Add(new TypedTarget(expandedName, type));
+                    }
+                }
 
                 sb.AppendLine("      {");
                 sb.AppendLine($"        name = \"{targetName}\",");
                 sb.AppendLine($"        src  = \"{item.Key}\"");
 
-                // Emit args in matrix
+                // Emit args in matrix.
                 if (hasArgs)
                 {
                     foreach (var argKey in argKeys)
@@ -107,7 +130,7 @@ public class DockerHclGenerator
                     }
                 }
 
-                // Emit tags in matrix
+                // Emit tags in matrix.
                 if (hasTags)
                 {
                     if (item.Definition.With.TryGetValue("tags", out var rawTags) && rawTags is List<object> tagList)
@@ -121,7 +144,7 @@ public class DockerHclGenerator
                     }
                 }
 
-                // Emit base in matrix
+                // Emit base in matrix.
                 if (hasBase)
                 {
                     if (item.Definition.With.TryGetValue("base", out var baseImage))
@@ -134,7 +157,7 @@ public class DockerHclGenerator
                     }
                 }
 
-                // Emit allow in matrix
+                // Emit allow in matrix.
                 if (hasAllow)
                 {
                     if (item.Definition.With.TryGetValue("allow", out var rawAllows) && rawAllows is List<object> allowList)
@@ -148,7 +171,7 @@ public class DockerHclGenerator
                     }
                 }
 
-                // Emit dockerfile in matrix
+                // Emit dockerfile in matrix.
                 if (hasDockerfile)
                 {
                     if (item.Definition.With.TryGetValue("dockerfile", out var dockerfileValue))
@@ -165,9 +188,20 @@ public class DockerHclGenerator
             }
 
             sb.AppendLine("    ]");
+
+            // Emit new matrix.
+            if (hasMatrix)
+            {
+                foreach (var axis in matrixAxes.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+                {
+                    var values = axis.Value.Select(v => $"\"{v}\"");
+                    sb.AppendLine($"    {axis.Key} = [{string.Join(", ", values)}]");
+                }
+            }
+
             sb.AppendLine("  }");
 
-            // Emit args
+            // Emit args.
             sb.AppendLine("  args = {");
             sb.AppendLine("    BUILDCHARTS_SRC = item.src");
             sb.AppendLine("    BUILDCHARTS_TYPE = \"" + type + "\"");
@@ -178,16 +212,24 @@ public class DockerHclGenerator
                     sb.AppendLine($"    {argKey.ToUpperSnakeCaseInvariant()} = \"${{item.{argKey}}}\"");
                 }
             }
+            if (hasMatrix)
+            {
+                foreach (var axis in matrixAxes.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+                {
+                    var axisKey = axis.Key.ToUpperSnakeCaseInvariant();
+                    sb.AppendLine($"    {axisKey} = \"${{{axis.Key}}}\"");
+                }
+            }
 
             sb.AppendLine("  }");
 
-            // Emit tags
+            // Emit tags.
             if (hasTags)
             {
                 sb.AppendLine("  tags = \"${item.tags}\"");
             }
 
-            // Emit contexts
+            // Emit contexts.
             sb.AppendLine("  contexts = {");
             if (type != "build") // Target build cannot link to itself.
             {
@@ -199,7 +241,7 @@ public class DockerHclGenerator
             }
             sb.AppendLine("  }");
 
-            // Emit entitlements
+            // Emit entitlements.
             if (hasAllow)
             {
                 sb.AppendLine("  allow = \"${item.allow}\"");
@@ -233,7 +275,7 @@ public class DockerHclGenerator
             sb.AppendLine("}\n");
         }
 
-        // Emit output target
+        // Emit output target.
         sb.AppendLine("target \"output\" {");
         sb.AppendLine("  output = [\"type=local,dest=.buildcharts/output\"]");
         sb.AppendLine("  contexts = {");
@@ -310,22 +352,61 @@ public class DockerHclGenerator
             .Replace("\\", "\\\\")
             .Replace("\"", "\\\"");
 
-    
-    
+    private static Dictionary<string, List<string>> CollectMatrixAxes(BuildConfig buildConfig, string type)
+    {
+        if (!buildConfig.Types.TryGetValue(type, out var typeMatrix) || typeMatrix?.Matrix == null)
+        {
+            return [];
+        }
+
+        var normalized = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var axis in typeMatrix.Matrix)
+        {
+            var values = axis.Value?
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList() ?? [];
+
+            if (values.Count > 0)
+            {
+                normalized[axis.Key] = values;
+            }
+        }
+
+        return normalized;
+    }
+
+    private static List<string> ExpandTargetNames(string baseName, Dictionary<string, List<string>> matrixAxes)
+    {
+        var result = new List<string> { baseName };
+
+        var orderedAxes = matrixAxes
+            .OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(k => k.Value)
+            .ToList();
+        
+        foreach (var axisValues in orderedAxes)
+        {
+            result = result.SelectMany(name => axisValues.Select(value => $"{name}_{value}")).ToList();
+        }
+
+        return result;
+    }
+
     private string CreateUniqueName(BuildConfig buildConfig, string src, string type)
     {
-        // Count how many targets share this type
+        // Count how many targets share this type.
         var totalOfType = buildConfig.Targets
             .SelectMany(kvp => kvp.Value)
             .Count(def => def.Type.Equals(type, StringComparison.OrdinalIgnoreCase));
 
-        // If there's only one, keep it short
+        // If there's only one, keep it short.
         if (totalOfType == 1)
         {
             return type.ToLowerInvariant();
         }
 
-        // Normalize src (remove extension and sanitize path)
+        // Normalize src (remove extension and sanitize path).
         var cleanSrc = src
             .Replace("\\", "/") // normalize slashes
             .TrimEnd('/')
@@ -334,7 +415,7 @@ public class DockerHclGenerator
 
         var name = $"{type}__{cleanSrc}".ToLowerInvariant();
 
-        // Ensure uniqueness in case of collisions
+        // Ensure uniqueness in case of collisions.
         var originalName = name;
         var counter = 1;
 
