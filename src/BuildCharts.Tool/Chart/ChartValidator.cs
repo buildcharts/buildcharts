@@ -41,7 +41,7 @@ public static class ChartValidator
 
             if (unknownTypes.Count > 0)
             {
-                throw new InvalidOperationException($"Invalid build.yaml - Unknown target type(s): {string.Join(", ", unknownTypes)}. buAdd the type(s) to charts/buildcharts/Chart.yaml or fix build.yml.");
+                throw new InvalidOperationException($"Invalid build.yaml - Unknown target type(s): {string.Join(", ", unknownTypes)}. Add the type(s) to charts/buildcharts/Chart.yaml or fix build.yml.");
             }
         }
 

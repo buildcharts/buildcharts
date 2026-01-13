@@ -14,10 +14,10 @@ public static class ConfigurationManager
     public const string CHART_CONFIG_PATH = "charts/buildcharts/Chart.yaml";
     public const string CHART_LOCK_PATH = "charts/buildcharts/Chart.lock";
 
-    private static readonly IDeserializer _deserializer = new DeserializerBuilder()
+    public static readonly IDeserializer Deserializer = new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
-        .WithTypeConverter(new BuildVariablesYamlTypeConverter())
-        .WithTypeConverter(new FlexibleListYamlTypeConverter<TargetDefinition>())
+        .WithTypeConverter(new VariableDefinitionsYamlTypeConverter())
+        .WithTypeConverter(new TargetTypeDefinitionYamlTypeConverter())
         .IgnoreUnmatchedProperties()
         .Build();
 
@@ -30,7 +30,7 @@ public static class ConfigurationManager
     public static async Task<(string, BuildConfig)> ReadBuildConfigAsync(CancellationToken ct)
     {
         var yaml = await File.ReadAllTextAsync(BUILD_CONFIG_PATH, ct);
-        var config = _deserializer.Deserialize<BuildConfig>(yaml) ?? new BuildConfig();
+        var config = Deserializer.Deserialize<BuildConfig>(yaml) ?? new BuildConfig();
 
         return (yaml, config);
     }
@@ -38,7 +38,7 @@ public static class ConfigurationManager
     public static async Task<(string, ChartConfig)> ReadChartConfigAsync(CancellationToken ct)
     {
         var yaml = await File.ReadAllTextAsync(CHART_CONFIG_PATH, ct);
-        var config = _deserializer.Deserialize<ChartConfig>(yaml) ?? new ChartConfig();
+        var config = Deserializer.Deserialize<ChartConfig>(yaml) ?? new ChartConfig();
 
         return (yaml, config);
     }
@@ -46,7 +46,7 @@ public static class ConfigurationManager
     public static async Task<(string, ChartLock)> ReadChartLockAsync(CancellationToken ct)
     {
         var yaml = await File.ReadAllTextAsync(CHART_LOCK_PATH, ct);
-        var config = _deserializer.Deserialize<ChartLock>(yaml) ?? new ChartLock();
+        var config = Deserializer.Deserialize<ChartLock>(yaml) ?? new ChartLock();
 
         return (yaml, config);
     }

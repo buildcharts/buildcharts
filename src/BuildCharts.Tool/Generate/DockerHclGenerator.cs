@@ -21,9 +21,12 @@ public class DockerHclGenerator
         foreach (var param in buildConfig.Variables)
         {
             var name = param.Key.ToUpperInvariant();
-            if (!string.IsNullOrEmpty(param.Value))
+            var definition = param.Value;
+            if (!string.IsNullOrEmpty(definition.Default))
             {
-                sb.AppendLine($"variable \"{name}\" {{ default = \"{Escape(param.Value)}\" }}");
+                sb.AppendLine($"variable \"{name}\" {{");
+                sb.AppendLine($"  default = \"{Escape(definition.Default)}\"");
+                sb.AppendLine("}");
             }
             else
             {
@@ -285,6 +288,8 @@ public class DockerHclGenerator
         value
             .Replace("\\", "\\\\")
             .Replace("\"", "\\\"");
+
+    
     
     private string CreateUniqueName(BuildConfig buildConfig, string src, string type)
     {

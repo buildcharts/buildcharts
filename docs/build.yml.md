@@ -8,9 +8,13 @@ This document describes the structure of `build.yml`, which controls how `buildc
 The metadata version. `latest` is accepted.
 
 ### `variables`
-A list of global variables exposed to pipeline execution. Each item may be just the variable name or `NAME=value` to provide a default.
+A list of global variables exposed to pipeline execution. 
 
-```
+A variable can be defined in different ways:
+
+1. **Sequence of names**
+
+```yaml
 variables:
   - VERSION
   - COMMIT
