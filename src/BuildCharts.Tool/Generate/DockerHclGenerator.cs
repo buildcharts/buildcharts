@@ -68,6 +68,7 @@ public class DockerHclGenerator
             var hasTags = targets.Any(x => x.Definition.With.ContainsKey("tags"));
             var hasBase = targets.Any(x => x.Definition.With.ContainsKey("base"));
             var hasAllow = targets.Any(x => x.Definition.With.ContainsKey("allow"));
+            var hasDockerfile = targets.Any(x => x.Definition.With.ContainsKey("dockerfile"));
 
             sb.AppendLine($"target \"{type}\" {{");
             sb.AppendLine($"  inherits = [\"_common\"]");
@@ -147,6 +148,19 @@ public class DockerHclGenerator
                     }
                 }
 
+                // Emit dockerfile in matrix
+                if (hasDockerfile)
+                {
+                    if (item.Definition.With.TryGetValue("dockerfile", out var dockerfileValue))
+                    {
+                        sb.AppendLine($"        dockerfile = \"{dockerfileValue}\"");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"        dockerfile = \"./.buildcharts/{chartAlias}/Dockerfile\"");
+                    }
+                }
+
                 sb.AppendLine("      },");
             }
 
@@ -191,7 +205,7 @@ public class DockerHclGenerator
                 sb.AppendLine("  allow = \"${item.allow}\"");
             }
             
-            if (useInlineDockerFile)
+            if (useInlineDockerFile && !hasDockerfile)
             {
                 var dockerfilePath = $".buildcharts/{chartAlias}/Dockerfile";
                 if (!File.Exists(dockerfilePath))
@@ -206,7 +220,14 @@ public class DockerHclGenerator
             }
             else
             {
-                sb.AppendLine($"  dockerfile = \"./.buildcharts/{chartAlias}/Dockerfile\"");
+                if (hasDockerfile)
+                {
+                    sb.AppendLine("  dockerfile = \"${item.dockerfile}\"");
+                }
+                else
+                {
+                    sb.AppendLine($"  dockerfile = \"./.buildcharts/{chartAlias}/Dockerfile\"");
+                }
             }
 
             sb.AppendLine("}\n");
