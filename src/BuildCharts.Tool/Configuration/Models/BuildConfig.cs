@@ -8,6 +8,7 @@ public class BuildConfig
     public Dictionary<string, VariableDefinition> Variables { get; set; } = [];
     public List<string> Plugins { get; set; } = [];
     public Dictionary<string, List<TargetDefinition>> Targets { get; set; } = [];
+    public Dictionary<string, TypeMatrixDefinition> Types { get; set; } = [];
 }
 
 public class VariableDefinition
@@ -19,4 +20,9 @@ public class TargetDefinition
 {
     public string Type { get; set; }
     public Dictionary<string, object> With { get; set; } = new();
+}
+
+public class TypeMatrixDefinition
+{
+    public Dictionary<string, List<string>> Matrix { get; set; } = [];
 }
