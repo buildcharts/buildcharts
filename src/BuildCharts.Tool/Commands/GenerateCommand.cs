@@ -43,7 +43,7 @@ public class GenerateCommand
             var (_, chartConfig) = await ConfigurationManager.ReadChartConfigAsync(ct);
             var (_, chartLock) = useLockFile ? await ConfigurationManager.ReadChartLockAsync(ct) : (null, new ChartLock());
 
-            await ChartValidator.ValidateConfigAsync(buildConfig);
+            await ChartValidator.ValidateConfigAsync(buildConfig, chartConfig);
             await ChartValidator.ValidateLockFileAsync(chartConfig, chartLock, useLockFile, ct);
 
             Console.WriteLine("Pulling charts...");

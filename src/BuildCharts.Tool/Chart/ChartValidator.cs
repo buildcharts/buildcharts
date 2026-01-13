@@ -10,7 +10,7 @@ namespace BuildCharts.Tool.Chart;
 
 public static class ChartValidator
 {
-    public static Task ValidateConfigAsync(BuildConfig buildConfig)
+    public static Task ValidateConfigAsync(BuildConfig buildConfig, ChartConfig chartConfig)
     {
         var totalBuildTargets = buildConfig.Targets.SelectMany(x => x.Value).Count(x => x.Type == "build");
         if (totalBuildTargets == 0)
@@ -21,6 +21,28 @@ public static class ChartValidator
         if (totalBuildTargets > 1)
         {
             throw new InvalidOperationException("Invalid build.yaml - Only 1 build target is supported.");
+        }
+
+        var supportedTypes = (chartConfig?.Dependencies ?? [])
+            .Select(d => d.Alias)
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (supportedTypes.Count > 0)
+        {
+            var unknownTypes = buildConfig.Targets
+                .SelectMany(x => x.Value)
+                .Select(x => x.Type)
+                .Where(t => !string.IsNullOrWhiteSpace(t) && !supportedTypes.Contains(t))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (unknownTypes.Count > 0)
+            {
+                throw new InvalidOperationException($"Invalid build.yaml - Unknown target type(s): {string.Join(", ", unknownTypes)}. buAdd the type(s) to charts/buildcharts/Chart.yaml or fix build.yml.");
+            }
         }
 
         return Task.CompletedTask;
