@@ -5,11 +5,11 @@ using BuildCharts.Tool.Plugins.TestcontainersDinD_v1.Helpers;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Configurations;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -84,16 +84,8 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
 
     private static async Task<ContainerListResponse> IfAlreadyExistsAndSameImageOtherwiseKill(CancellationToken ct)
     {
-        var host = Environment.GetEnvironmentVariable("DOCKER_HOST");
-
-        if (string.IsNullOrWhiteSpace(host))
-        {
-            host = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? "npipe://./pipe/docker_engine"
-                : "unix:///var/run/docker.sock";
-        }
-
-        using var client = new DockerClientConfiguration(new Uri(host)).CreateClient();
+        var dockerEndpoint = TestcontainersSettings.OS.DockerEndpointAuthConfig.Endpoint;
+        using var client = new DockerClientConfiguration(dockerEndpoint).CreateClient();
 
         // Query containers by name (Docker returns names with leading '/').
         var list = await client.Containers.ListContainersAsync(new ContainersListParameters
