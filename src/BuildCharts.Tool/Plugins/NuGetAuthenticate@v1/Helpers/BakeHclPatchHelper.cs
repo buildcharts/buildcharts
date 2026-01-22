@@ -8,8 +8,7 @@ public static class BakeHclPatchHelper
     private const string TARGET_MARKER = "target \"_common\"";
     private const string SECRET_SNIPPET =
         "  secret = [\n" +
-        "    \"type=file,id=VSS_NUGET_EXTERNAL_FEED_ENDPOINTS,src=.buildcharts/secrets/VSS_NUGET_EXTERNAL_FEED_ENDPOINTS\",\n" +
-        "    \"type=file,id=VSS_NUGET_ACCESSTOKEN,src=.buildcharts/secrets/VSS_NUGET_ACCESSTOKEN\"\n" +
+        "    \"type=file,id=ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS,src=.buildcharts/secrets/ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS\",\n" +
         "  ]\n";
 
     /// <summary>
