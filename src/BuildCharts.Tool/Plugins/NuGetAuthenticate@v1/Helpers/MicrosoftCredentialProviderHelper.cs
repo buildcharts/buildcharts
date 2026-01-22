@@ -44,7 +44,7 @@ public static class MicrosoftCredentialProviderHelper
 
         if (isWindows)
         {
-            ZipFile.ExtractToDirectory(archivePath, folder, overwriteFiles: true);
+            await ZipFile.ExtractToDirectoryAsync(archivePath, folder, overwriteFiles: true, cancellationToken: ct);
         }
         else
         {
@@ -61,10 +61,8 @@ public static class MicrosoftCredentialProviderHelper
         }
     }
 
-    public static async Task<string> FetchCredentialsAsync(string cpFolder, Uri feedUrl, CancellationToken ct)
+    public static async Task<string> FetchCredentialsAsync(string cpFolder, Uri feedUrl, bool isRetry, CancellationToken ct)
     {
-        Console.WriteLine($"Fetching credentials for {feedUrl.Host} via Azure Artifacts Credential Provider");
-
         // Always run the provider via 'dotnet' using the DLL for cross-platform consistency.
         var dllPath = Directory.EnumerateFiles(cpFolder, "CredentialProvider.Microsoft.dll", SearchOption.AllDirectories).FirstOrDefault()  
             ?? throw new FileNotFoundException("Credential Provider DLL not found in " + cpFolder);
@@ -84,6 +82,19 @@ public static class MicrosoftCredentialProviderHelper
             UseShellExecute = false,
         };
 
+        if (Environment.GetEnvironmentVariable("BUILDSCHARTS_VERBOSE") == "1")
+        {
+            psi.ArgumentList.Add("-V");
+            psi.ArgumentList.Add("verbose");
+        }
+
+        if (isRetry)
+        {
+            psi.ArgumentList.Add("-IsRetry");
+            psi.ArgumentList.Add("true");
+        }
+
+        Console.WriteLine($"Running command: dotnet {string.Join(" ", psi.ArgumentList)}");
         using var process = Process.Start(psi) ?? throw new InvalidOperationException($"Failed to start process. 'dotnet {dllPath} {string.Join(" ", psi.ArgumentList)}'");
 
         var outputBuilder = new StringBuilder();
@@ -99,7 +110,7 @@ public static class MicrosoftCredentialProviderHelper
         {
             if (e.Data != null)
             {
-                Console.Error.WriteLine(e.Data);
+                Console.WriteLine($"{DateTimeOffset.Now:HH:mm:ss.fff} {e.Data}");
             }
         };
 
