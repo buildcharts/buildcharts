@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -42,56 +45,60 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
             }
 
             // Prefer environment-supplied credentials (non-interactive in CI) to avoid device flow.
-            var endpointsEnv = Environment.GetEnvironmentVariable("VSS_NUGET_EXTERNAL_FEED_ENDPOINTS");
-            var tokenEnv = Environment.GetEnvironmentVariable("VSS_NUGET_ACCESSTOKEN") ?? Environment.GetEnvironmentVariable("SYSTEM_ACCESSTOKEN") ?? Environment.GetEnvironmentVariable("AZURE_ARTIFACTS_ENV_ACCESS_TOKEN");
+            var (endpointsEnv, endpointsSource) = GetEnv("ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS", "VSS_NUGET_EXTERNAL_FEED_ENDPOINTS");
+            var (tokenEnv, tokenSource) = GetEnv("ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN", "VSS_NUGET_ACCESSTOKEN", "SYSTEM_ACCESSTOKEN", "AZURE_ARTIFACTS_ENV_ACCESS_TOKEN");
 
             if (!string.IsNullOrWhiteSpace(endpointsEnv))
             {
-                Console.WriteLine("Using VSS_NUGET_EXTERNAL_FEED_ENDPOINTS from environment");
+                Console.WriteLine($"Using {endpointsSource} from environment");
 
-                WriteValueToFile("VSS_NUGET_EXTERNAL_FEED_ENDPOINTS", endpointsEnv);
-
-                if (!string.IsNullOrWhiteSpace(tokenEnv))
-                {
-                    WriteValueToFile("VSS_NUGET_ACCESSTOKEN", tokenEnv);
-                }
+                WriteValueToFile("ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS", endpointsEnv);
             }
             else if (!string.IsNullOrWhiteSpace(tokenEnv))
             {
-                Console.WriteLine("Using VSS_NUGET_ACCESSTOKEN/SYSTEM_ACCESSTOKEN from environment");
+                Console.WriteLine($"Using {tokenSource} from environment");
 
-                var endpointCredentialsFromEnv = sources.Select(src => new
+                var endpointCredentials = sources.Select(src => new
                 {
                     endpoint = src,
                     username = "docker",
                     password = tokenEnv,
                 });
 
-                var feedEndpointsFromEnv = JsonSerializer.Serialize(new { endpointCredentials = endpointCredentialsFromEnv }, new JsonSerializerOptions { WriteIndented = true });
-
-                WriteValueToFile("VSS_NUGET_EXTERNAL_FEED_ENDPOINTS", feedEndpointsFromEnv);
-                WriteValueToFile("VSS_NUGET_ACCESSTOKEN", tokenEnv);
+                var feedEndpoints = JsonSerializer.Serialize(new { endpointCredentials }, new JsonSerializerOptions { WriteIndented = true });
+                WriteValueToFile("ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS", feedEndpoints);
             }
             else
             {
-                // As a last resort, ensure the credential provider is downloaded and fetch token
+                // Ensure the credential provider is downloaded and fetch token
                 var targetFolder = Path.Combine(Directory.GetCurrentDirectory(), ".buildcharts", "plugins", Name, "microsoft-artifacts-credprovider");
                 await MicrosoftCredentialProviderHelper.EnsureInstalledAsync(targetFolder, ct);
 
-                var token = await MicrosoftCredentialProviderHelper.FetchCredentialsAsync(targetFolder, sources.FirstOrDefault(), ct);
+                // Generate the feed-endpoints JSON used by the Credential provider when restoring nuget.
+                var tokens = new List<(Uri Source, string Token)>();
 
-                // Generate the feed-endpoints JSON used by the credential provider bundled in SDK docker image.
-                var endpointCredentials = sources.Select(src => new
+                foreach (var sourceByOrganizationUrl in sources.GroupBy(GetOrganizationUrl))
                 {
-                    endpoint = src,
+                    // Only fetch credentials once per organization.
+                    Console.WriteLine($"Fetching credentials for {sourceByOrganizationUrl.Key} via Azure Artifacts Credential Provider");
+
+                    var token = await FetchTokenForFeedAsync(targetFolder, sourceByOrganizationUrl.First(), ct);
+
+                    foreach (var source in sourceByOrganizationUrl)
+                    {
+                        tokens.Add((source, token));
+                    }
+                }
+
+                var endpointCredentials = tokens.Select(item => new
+                {
+                    endpoint = item.Source,
                     username = "docker",
-                    password = token,
+                    password = item.Token,
                 });
 
                 var feedEndpoints = JsonSerializer.Serialize(new { endpointCredentials }, new JsonSerializerOptions { WriteIndented = true });
-
-                WriteValueToFile("VSS_NUGET_EXTERNAL_FEED_ENDPOINTS", feedEndpoints);
-                WriteValueToFile("VSS_NUGET_ACCESSTOKEN", token);
+                WriteValueToFile("ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS", feedEndpoints);
             }
         }
         catch (Exception ex)
@@ -105,6 +112,19 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
     {
         BakeHclPatchHelper.Execute(hclStringBuilder);
         return Task.CompletedTask;
+    }
+    
+    private static (string Value, string Source) GetEnv(params string[] names)
+    {
+        foreach (var name in names)
+        {
+            var value = Environment.GetEnvironmentVariable(name);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return (value, name);
+            }
+        }
+        return (null, null);
     }
 
     private async Task<List<Uri>> GetNuGetSources(CancellationToken ct)
@@ -169,5 +189,61 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
         File.WriteAllText(filePath, value, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
         Console.WriteLine($"Successfully created file '{Path.GetRelativePath(Directory.GetCurrentDirectory(), filePath)}'");
+    }
+
+    private static async Task<string> FetchTokenForFeedAsync(string targetFolder, Uri source, CancellationToken ct)
+    {
+        var token = await MicrosoftCredentialProviderHelper.FetchCredentialsAsync(targetFolder, source, isRetry: false, ct);
+        if (!await IsTokenValidAsync(source, token, ct))
+        {
+            if (Environment.GetEnvironmentVariable("BUILDSCHARTS_VERBOSE") == "1")
+            {
+                Console.WriteLine("Credential Provider returned invalid credentials. Retrying with IsRetry forcing a refresh...");
+            }
+
+            token = await MicrosoftCredentialProviderHelper.FetchCredentialsAsync(targetFolder, source, isRetry: true, ct);
+
+            if (!await IsTokenValidAsync(source, token, ct))
+            {
+                throw new InvalidOperationException($"Credential Provider returned invalid credentials after retry for {source}.");
+            }
+        }
+
+        return token;
+    }
+
+    private static string GetOrganizationUrl(Uri source)
+    {
+        if (source == null)
+        {
+            return "";
+        }
+
+        if (source.Host.EndsWith("visualstudio.com", StringComparison.OrdinalIgnoreCase))
+        {
+            var subdomain = source.Host.Split('.', 2)[0];
+            return $"{source.Scheme}://{subdomain}.visualstudio.com";
+        }
+
+        var segments = source.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var org = segments.Length > 0 ? segments[0] : "";
+        return $"{source.Scheme}://{source.Host}/{org}";
+    }
+
+    private static async Task<bool> IsTokenValidAsync(Uri feedUrl, string token, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return false;
+        }
+
+        using var http = new HttpClient();
+        var authValue = Convert.ToBase64String(Encoding.ASCII.GetBytes($"docker:{token}"));
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, feedUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authValue);
+
+        using var response = await http.SendAsync(request, ct);
+        return response.StatusCode == HttpStatusCode.OK;
     }
 }
