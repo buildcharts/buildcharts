@@ -20,6 +20,9 @@ public class GenerateCommand
     [Option("--ignore-lock", Description = "Ignore the chart lock file when validating chart digests.")]
     public bool IgnoreLockFile { get; set; } = false;
 
+    [Option("--verbose", Description = "Enable verbose logging for generators and plugins.")]
+    public bool Verbose { get; set; } = false;
+
     private readonly DockerHclGenerator _dockerHclGenerator = new();
 
     public async Task<int> OnExecuteAsync(CommandLineApplication app, CancellationToken ct)
@@ -29,6 +32,11 @@ public class GenerateCommand
             if (Directory.Exists(".buildcharts"))
             {
                 Directory.Delete(".buildcharts", true);
+            }
+
+            if (Verbose)
+            {
+                Environment.SetEnvironmentVariable("BUILDSCHARTS_VERBOSE", "1");
             }
 
             if (!File.Exists(ConfigurationManager.CHART_CONFIG_PATH))
@@ -55,16 +63,16 @@ public class GenerateCommand
                 Console.WriteLine("");
                 Console.WriteLine($"\u001b[2mRunning plugin: {plugin.Name}\u001b[22m");
                 await plugin.OnBeforeGenerateAsync(buildConfig, ct);
+                Console.WriteLine($"\u001b[2mPlugin complete: {plugin.Name}\u001b[22m");
             }
-          
+
             var hclStringBuilder = await _dockerHclGenerator.GenerateAsync(buildConfig, chartConfig, UseInlineDockerFile);
 
             foreach (var plugin in plugins)
             {
                 await plugin.OnAfterGenerateAsync(buildConfig, chartConfig, hclStringBuilder, ct);
-                Console.WriteLine($"\u001b[2mPlugin complete: {plugin.Name}\u001b[22m");
             }
-            
+
             await File.WriteAllTextAsync(Path.Join(".buildcharts", "docker-bake.hcl"), hclStringBuilder.ToString(), ct);
 
             Console.WriteLine("");
