@@ -15,18 +15,17 @@ ARG VERSION
 ARG CONFIGURATION=Release
 ARG COMMIT
 
-# Install the self-contained Azure Artifacts Credential Provider to enable support for VSS_NUGET_EXTERNAL_FEED_ENDPOINTS.
+# Install the self-contained Azure Artifacts Credential Provider to enable support for ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS.
 RUN curl -L https://raw.githubusercontent.com/Microsoft/artifacts-credprovider/master/helpers/installcredprovider.sh | sh
 
 # Copy project files and restore as distinct layer.
-COPY --link --parents *.sln **/*.csproj **/*.dcproj **/NuGet.Config **/Directory.Build.props **/Directory.Build.targets **/Directory.Packages.props global.json ./
+COPY --link --parents *.sln *.slnx **/*.csproj **/*.dcproj **/[Nn]u[Gg]et.[Cc]onfig **/Directory.Build.props **/Directory.Build.targets **/Directory.Packages.props global.json ./
 
 # Optional: Clean is only needed when bin/obj folders are NOT included in .dockerignore, which is best practice, so we skip it.
 #RUN dotnet clean 
 
 # Restore with secrets.
-RUN --mount=type=secret,id=VSS_NUGET_ACCESSTOKEN,env=VSS_NUGET_ACCESSTOKEN \
-    --mount=type=secret,id=VSS_NUGET_EXTERNAL_FEED_ENDPOINTS,env=VSS_NUGET_EXTERNAL_FEED_ENDPOINTS \
+RUN --mount=type=secret,id=ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS,env=ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS \
     --mount=type=cache,id=nuget,target=/root/.nuget/packages \
       dotnet restore "/src/$BUILDCHARTS_SRC" --locked-mode --use-lock-file
 
@@ -34,8 +33,7 @@ RUN --mount=type=secret,id=VSS_NUGET_ACCESSTOKEN,env=VSS_NUGET_ACCESSTOKEN \
 COPY --link . .
 
 # Execute build.
-RUN --mount=type=secret,id=VSS_NUGET_ACCESSTOKEN,env=VSS_NUGET_ACCESSTOKEN \
-    --mount=type=secret,id=VSS_NUGET_EXTERNAL_FEED_ENDPOINTS,env=VSS_NUGET_EXTERNAL_FEED_ENDPOINTS \
+RUN --mount=type=secret,id=ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS,env=ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS \
     --mount=type=cache,id=nuget,target=/root/.nuget/packages \
     dotnet build "/src/$BUILDCHARTS_SRC" \
         --no-restore \

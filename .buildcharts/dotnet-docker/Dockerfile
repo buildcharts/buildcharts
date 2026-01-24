@@ -1,7 +1,7 @@
 ###################################
 # Target: pre-docker
 ###################################
-FROM build AS publish
+FROM build AS pre-docker
 
 ARG BUILDCHARTS_SRC
 ARG CONFIGURATION=Release
@@ -26,6 +26,6 @@ RUN DLL_NAME=$(basename "$BUILDCHARTS_SRC" .csproj).dll && \
 FROM base AS docker
 
 WORKDIR /app
-COPY --link --from=publish /entrypoint.sh /entrypoint.sh
-COPY --link --from=publish /output .
+COPY --link --from=pre-docker /entrypoint.sh /entrypoint.sh
+COPY --link --from=pre-docker /output .
 ENTRYPOINT ["/entrypoint.sh"]

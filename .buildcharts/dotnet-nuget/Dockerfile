@@ -1,7 +1,7 @@
 ###################################
-# Target: nuget
+# Target: pre-nuget
 ###################################
-FROM build AS nuget
+FROM build AS pre-nuget
 
 ARG BUILDCHARTS_SRC
 ARG VERSION
@@ -97,3 +97,9 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
         --configuration "$CONFIGURATION" \
         --output "/output" \
         /p:PackageVersion="$VERSION"
+
+###################################
+# Target: nuget
+###################################
+FROM scratch AS nuget
+COPY --from=pre-nuget /output /

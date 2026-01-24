@@ -1,7 +1,7 @@
 ###################################
-# Target: test
+# Target: pre-test
 ###################################
-FROM build AS test
+FROM build AS pre-test
 
 ARG BUILDCHARTS_SRC
 ARG CONFIGURATION=Release
@@ -17,8 +17,24 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
         --no-restore \
         --configuration "$CONFIGURATION" \
         --collect "XPlat Code Coverage" \
-        --logger "trx;LogFileName=$(basename "$BUILDCHARTS_SRC" .csproj)_$(date +%Y%m%d-%H%M%S).trx" \
-        --results-directory /results || \
-        echo "⚠️ dotnet test failed, continuing so results can be verified later" ; \
-    mkdir -p /output && cp /results/*.trx /output/ 2>/dev/null || true ; \
-    find /results -name 'coverage.cobertura.xml' -exec cp {} /output/ \; 2>/dev/null || true
+        --logger "trx" \
+        --results-directory "/results/$(basename "$BUILDCHARTS_SRC" .csproj)_$(date +%Y%m%d-%H%M%S)" || \
+        echo "⚠️ dotnet test failed, continuing so results can be verified later"
+
+# Copy TRX and coverage files while preserving their relative paths.
+RUN mkdir -p /output && \
+    find /results -name '*.trx' \
+        -exec sh -c ' rel="${1#/results/}"; dst="/output/$(dirname "$rel")"; mkdir -p "$dst"; cp "$1" "$dst/" ' _ {} \; 2>/dev/null || true && \
+    find /results -path '*/In/**/coverage.cobertura.xml' \
+        -exec sh -c 'rel="${1#/results/}"; dst="/output/$(dirname "$rel")"; mkdir -p "$dst"; cp "$1" "$dst/" ' _ {} \; 2>/dev/null || true
+
+# RUN mkdir -p /output && \
+#     find /results \( -name '*.trx' -o -path '*/In/*/coverage.cobertura.xml' \) \
+#       -exec sh -c 'rel="${1#/results/}"; dst="/output/$(dirname "$rel")"; mkdir -p "$dst"; cp "$1" "$dst/"' _ {} \; \
+#       2>/dev/null || true
+
+###################################
+# Target: test
+###################################
+FROM scratch AS test
+COPY --from=pre-test /output /
