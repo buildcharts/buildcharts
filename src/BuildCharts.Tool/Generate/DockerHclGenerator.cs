@@ -48,9 +48,6 @@ public class DockerHclGenerator
         sb.AppendLine("  }");
         sb.AppendLine("}\n");
 
-        // Collect typed targets for output.
-        var typedTargets = new List<TypedTarget>();
-
         // Emit targets as matrix per type.
         var groupedTargetsByType = buildConfig.Targets
             .SelectMany(kvp => kvp.Value.Select(def => new { kvp.Key, def }))
@@ -71,6 +68,7 @@ public class DockerHclGenerator
             var hasAllow = targets.Any(x => x.Definition.With.ContainsKey("allow"));
             var hasDockerfile = targets.Any(x => x.Definition.With.ContainsKey("dockerfile"));
             var hasMatrix = matrixAxes.Count > 0;
+            var matrixSuffix = string.Join("_", matrixAxes.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).Select(k => $"${{{k}}}"));
 
             sb.AppendLine($"target \"{type}\" {{");
             sb.AppendLine($"  inherits = [\"_common\"]");
@@ -78,8 +76,7 @@ public class DockerHclGenerator
 
             if (hasMatrix)
             {
-                var suffix = string.Join("_", matrixAxes.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).Select(k => $"${{{k}}}"));
-                sb.AppendLine($"  name = \"${{item.name}}_{suffix}\"");
+                sb.AppendLine($"  name = \"${{item.name}}_{matrixSuffix}\"");
             }
             else
             {
@@ -92,9 +89,21 @@ public class DockerHclGenerator
             }
 
             // Emit output.
-            sb.AppendLine(type == "docker" ?
-                "  output = [\"type=docker\"]" :
-                "  output = [\"type=cacheonly,mode=max\"]");
+            if (type == "build")
+            {
+                sb.AppendLine("  output = [\"type=cacheonly,mode=max\"]");
+            }
+            else if (type == "docker")
+            {
+                sb.AppendLine("  output = [\"type=docker\"]");
+            }
+            else
+            {
+                sb.AppendLine("  output = [");
+                sb.AppendLine("    \"type=cacheonly,mode=max\",");
+                sb.AppendLine($"    \"type=local,dest=.buildcharts/output/{type}\"");
+                sb.AppendLine("  ]");
+            }
 
             // Emit targets in type matrix.
             sb.AppendLine("  matrix = {");
@@ -103,19 +112,6 @@ public class DockerHclGenerator
             foreach (var item in targets)
             {
                 var targetName = CreateUniqueName(buildConfig, item.Key, type);
-
-                if (matrixAxes.Count == 0)
-                {
-                    typedTargets.Add(new TypedTarget(targetName, type));
-                }
-                else
-                {
-                    // Matrix requires unique target name eg "${item.name}" becomes "${item.name}_$runtime" per variation.
-                    foreach (var expandedName in ExpandTargetNames(targetName, matrixAxes))
-                    {
-                        typedTargets.Add(new TypedTarget(expandedName, type));
-                    }
-                }
 
                 sb.AppendLine("      {");
                 sb.AppendLine($"        name = \"{targetName}\",");
@@ -246,7 +242,7 @@ public class DockerHclGenerator
             {
                 sb.AppendLine("  allow = \"${item.allow}\"");
             }
-            
+
             if (useInlineDockerFile && !hasDockerfile)
             {
                 var dockerfilePath = $".buildcharts/{chartAlias}/Dockerfile";
@@ -275,31 +271,8 @@ public class DockerHclGenerator
             sb.AppendLine("}\n");
         }
 
-        // Emit output target.
-        sb.AppendLine("target \"output\" {");
-        sb.AppendLine("  output = [\"type=local,dest=.buildcharts/output\"]");
-        sb.AppendLine("  contexts = {");
-
-        foreach (var target in typedTargets.Where(x => x.Type is not "docker" and not "build"))
-        {
-            sb.AppendLine($"    {target.Name} = \"target:{target.Name}\"");
-        }
-        
-        sb.AppendLine("  }");
-        sb.AppendLine("  dockerfile-inline = <<EOF");
-        sb.AppendLine("FROM scratch AS output");
-
-        foreach (var target in typedTargets.Where(x => x.Type is not "docker" and not "build"))
-        {
-            sb.AppendLine($"COPY --link --from={target.Name} /output /{target.Type}");
-        }
-        
-        sb.AppendLine("EOF");
-        sb.AppendLine("}");
-
-        sb.AppendLine();
         sb.AppendLine("group \"default\" {");
-        sb.AppendLine($"  targets = [{string.Join(", ", groupedTargetsByType.GroupBy(x => x.Key).Select(x => $"\"{x.Key}\""))}, \"output\"]");
+        sb.AppendLine($"  targets = [{string.Join(", ", groupedTargetsByType.GroupBy(x => x.Key).Select(x => $"\"{x.Key}\""))}]");
         sb.AppendLine("}");
 
         return sb;
@@ -376,23 +349,6 @@ public class DockerHclGenerator
         return normalized;
     }
 
-    private static List<string> ExpandTargetNames(string baseName, Dictionary<string, List<string>> matrixAxes)
-    {
-        var result = new List<string> { baseName };
-
-        var orderedAxes = matrixAxes
-            .OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(k => k.Value)
-            .ToList();
-        
-        foreach (var axisValues in orderedAxes)
-        {
-            result = result.SelectMany(name => axisValues.Select(value => $"{name}_{value}")).ToList();
-        }
-
-        return result;
-    }
-
     private string CreateUniqueName(BuildConfig buildConfig, string src, string type)
     {
         // Count how many targets share this type.
@@ -428,5 +384,4 @@ public class DockerHclGenerator
     }
 
     private record TargetItem(string Key, TargetDefinition Definition, Dictionary<string, object> Args);
-    private record TypedTarget(string Name, string Type);
 }
