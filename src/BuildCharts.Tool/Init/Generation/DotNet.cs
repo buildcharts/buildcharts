@@ -23,7 +23,7 @@ public static class DotNet
         var sb = new StringBuilder();
         sb.AppendLine("version: v1beta");
         sb.AppendLine();
-        sb.AppendLine("environment:");
+        sb.AppendLine("variables:");
         sb.AppendLine("  - VERSION");
         sb.AppendLine("  - COMMIT");
         sb.AppendLine();
