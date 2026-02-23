@@ -9,7 +9,13 @@ using System.Threading.Tasks;
 
 namespace BuildCharts.Tool.Commands;
 
-[Command("update", Description = "Download OCI chart dependencies and refresh Chart.lock")]
+[Command(
+    "update",
+    Description = "Download OCI chart dependencies and refresh Chart.lock",
+    ExtendedHelpText = @"
+Environment variables:
+  DOCKER_CONFIG                  Override path to Docker config."
+)]
 public class UpdateCommand
 {
     public async Task<int> OnExecuteAsync(CommandLineApplication app, CancellationToken ct)

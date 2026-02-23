@@ -1,6 +1,5 @@
 ﻿using BuildCharts.Tool.Chart;
 using BuildCharts.Tool.Configuration;
-using BuildCharts.Tool.Configuration.Models;
 using BuildCharts.Tool.Docker;
 using ICSharpCode.SharpZipLib.GZip;
 using ICSharpCode.SharpZipLib.Tar;
@@ -24,13 +23,13 @@ public static class OrasClient
 {
     public static async Task<string> Pull(string reference, bool untar, string untarDir, string outputDir, bool useDigestName = false, CancellationToken ct = default)
     {
+        if (!ChartReference.TryParse(reference, out var chartReference))
+        {
+            throw new ArgumentException("Invalid chart reference");
+        }
+
         try
         {
-            if (!ChartReference.TryParse(reference, out var chartReference))
-            {
-                throw new ArgumentException("Invalid chart reference");
-            }
-
             var client = new Client
             {
                 CredentialProvider = await DockerCredentialHelper.GetCredentialAsync(chartReference.Registry),

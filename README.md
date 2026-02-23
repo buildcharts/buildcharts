@@ -160,6 +160,7 @@ Templates support:
 - https://docs.docker.com/build/cache/backends/registry/
 - https://docs.docker.com/guides/bake/#exporting-build-artifacts
 - https://github.com/docker/metadata-action?tab=readme-ov-file
+- https://github.com/Azure/acr/blob/main/docs/container-registry-oras-artifacts.md
 - https://github.com/docker/buildx/issues/1991
 - https://github.com/docker/metadata-action?tab=readme-ov-file
 - https://github.com/microsoft/azure-pipelines-tasks/blob/master/docs/authoring/commands.md

@@ -11,7 +11,13 @@ using System.Threading.Tasks;
 
 namespace BuildCharts.Tool.Commands;
 
-[Command(Name = "generate", Description = "Generate build using declarative metadata")]
+[Command(
+    Name = "generate",
+    Description = "Generate build using declarative metadata",
+    ExtendedHelpText = @"
+Environment variables:
+  DOCKER_CONFIG                  Override path to Docker config."
+)]
 public class GenerateCommand
 {
     [Option("--use-inline-dockerfiles", Description = "Use inlined dockerfiles instead of referencing external Dockerfiles.")]

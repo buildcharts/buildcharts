@@ -1,4 +1,4 @@
-﻿using OrasProject.Oras.Registry.Remote.Auth;
+using OrasProject.Oras.Registry.Remote.Auth;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -12,7 +12,7 @@ public static class DockerCredentialHelper
 {
     public static async Task<SingleRegistryCredentialProvider> GetCredentialAsync(string registry)
     {
-        var dockerConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".docker", "config.json");
+        var dockerConfigPath = ResolveDockerConfigPath();
 
         if (!File.Exists(dockerConfigPath))
         {
@@ -25,16 +25,35 @@ public static class DockerCredentialHelper
         // Try specific credHelper for the registry.
         if (root.TryGetProperty("credHelpers", out var helpers) && helpers.TryGetProperty(registry, out var helperName))
         {
-            return await RunCredentialHelper(helperName.GetString(), registry);
+            var provider = await RunCredentialHelper(helperName.GetString(), registry);
+            if (provider is not null)
+            {
+                return provider;
+            }
         }
 
         // Try default credsStore.
         if (root.TryGetProperty("credsStore", out var storeName))
         {
-            return await RunCredentialHelper(storeName.GetString(), registry);
+            var provider = await RunCredentialHelper(storeName.GetString(), registry);
+            if (provider is not null)
+            {
+                return provider;
+            }
         }
 
         return null;
+    }
+
+    private static string ResolveDockerConfigPath()
+    {
+        var dockerConfigDir = Environment.GetEnvironmentVariable("DOCKER_CONFIG");
+        if (!string.IsNullOrWhiteSpace(dockerConfigDir))
+        {
+            return Path.Combine(dockerConfigDir, "config.json");
+        }
+
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".docker", "config.json");
     }
 
     private static async Task<SingleRegistryCredentialProvider> RunCredentialHelper(string helperName, string registry)
@@ -92,11 +111,21 @@ public static class DockerCredentialHelper
                 return null;
             }
 
-            return new SingleRegistryCredentialProvider(registry, new Credential
+            var credential = new Credential
             {
                 Username = username,
                 Password = secret,
-            });
+            };
+
+            // Azure ACR expects ACR refresh tokens in the RefreshToken field.
+            if (registry.EndsWith(".azurecr.io", StringComparison.OrdinalIgnoreCase) && string.Equals(username, "<token>", StringComparison.OrdinalIgnoreCase))
+            {
+                credential.RefreshToken = secret;
+                credential.Password = null;
+                credential.Username = "00000000-0000-0000-0000-000000000000";
+            }
+
+            return new SingleRegistryCredentialProvider(registry, credential);
         }
         catch (JsonException)
         {

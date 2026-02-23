@@ -7,7 +7,13 @@ using System.Threading.Tasks;
 
 namespace BuildCharts.Tool.Commands;
 
-[Command("pull", Description = "Pull a build chart from an OCI registry")]
+[Command(
+    "pull",
+    Description = "Pull a build chart from an OCI registry",
+    ExtendedHelpText = @"
+Environment variables:
+  DOCKER_CONFIG                  Override path to Docker config."
+)]
 public class PullCommand
 {
     [Argument(0, Name = "reference", Description = "OCI reference in the form registry/repo[:tag]")]
