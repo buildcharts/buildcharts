@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -32,6 +33,12 @@ public static class DockerCredentialHelper
             }
         }
 
+        // Tre auths entries
+        if (root.TryGetProperty("auths", out var auths) &&  auths.TryGetProperty(registry, out var authEntry) && TryReadAuthEntry(registry, authEntry, out var authCredential))
+        {
+            return new SingleRegistryCredentialProvider(registry, authCredential);
+        }
+
         // Try default credsStore.
         if (root.TryGetProperty("credsStore", out var storeName))
         {
@@ -54,6 +61,79 @@ public static class DockerCredentialHelper
         }
 
         return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".docker", "config.json");
+    }
+
+    private static bool TryReadAuthEntry(string registry, JsonElement authEntry, out Credential credential)
+    {
+        credential = default;
+
+        // Azure ACR on Linux agents often stores token under identitytoken with auth "000...:".
+        if (registry.EndsWith(".azurecr.io", StringComparison.OrdinalIgnoreCase) &&
+            authEntry.TryGetProperty("identitytoken", out var identityTokenElement))
+        {
+            var identityToken = identityTokenElement.GetString();
+            if (!string.IsNullOrWhiteSpace(identityToken))
+            {
+                credential = new Credential
+                {
+                    Username = "00000000-0000-0000-0000-000000000000",
+                    RefreshToken = identityToken,
+                };
+
+                return true;
+            }
+        }
+
+        if (!authEntry.TryGetProperty("auth", out var authElement))
+        {
+            return false;
+        }
+
+        var authValue = authElement.GetString();
+        if (string.IsNullOrWhiteSpace(authValue))
+        {
+            return false;
+        }
+
+        try
+        {
+            var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(authValue));
+            var separatorIndex = decoded.IndexOf(':');
+            if (separatorIndex <= 0)
+            {
+                return false;
+            }
+
+            var username = decoded[..separatorIndex];
+            var password = decoded[(separatorIndex + 1)..];
+
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return false;
+            }
+
+            credential = new Credential
+            {
+                Username = username,
+                Password = string.IsNullOrWhiteSpace(password) ? null : password,
+            };
+
+            // Pass 00000000-0000-0000-0000-000000000000 as username according to docs.
+            // https://learn.microsoft.com/en-us/azure/container-registry/container-registry-authentication?tabs=azure-cli
+            if (registry.EndsWith(".azurecr.io", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(username, "00000000-0000-0000-0000-000000000000", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(password))
+            {
+                credential.RefreshToken = password;
+                credential.Password = null;
+            }
+
+            return true;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     private static async Task<SingleRegistryCredentialProvider> RunCredentialHelper(string helperName, string registry)
