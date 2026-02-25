@@ -125,7 +125,7 @@ public sealed class BuildConfigVariablesTests : TestBase
         void Act() => ConfigurationManager.Deserializer.Deserialize<BuildConfig>(yaml);
 
         // Assert
-        Assert.ThrowsException<YamlDotNet.Core.YamlException>(Act);
+        Assert.Throws<YamlDotNet.Core.YamlException>(Act);
     }
 
     [TestMethod]
@@ -146,7 +146,7 @@ public sealed class BuildConfigVariablesTests : TestBase
         void Act() => ConfigurationManager.Deserializer.Deserialize<BuildConfig>(yaml);
 
         // Assert
-        Assert.ThrowsException<YamlDotNet.Core.YamlException>(Act);
+        Assert.Throws<YamlDotNet.Core.YamlException>(Act);
     }
 
     [TestMethod]
@@ -166,7 +166,7 @@ public sealed class BuildConfigVariablesTests : TestBase
         void Act() => ConfigurationManager.Deserializer.Deserialize<BuildConfig>(yaml);
 
         // Assert
-        Assert.ThrowsException<YamlDotNet.Core.YamlException>(Act);
+        Assert.Throws<YamlDotNet.Core.YamlException>(Act);
     }
 
     private static VariableDefinition FindVariable(IReadOnlyDictionary<string, VariableDefinition> variables, string name)
