@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "dotnet-buildcharts": {
+      "version": "0.0.3-beta.226",
+      "commands": [
+        "buildcharts"
+      ],
+      "rollForward": false
+    }
+  }
+}

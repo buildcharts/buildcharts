@@ -1,0 +1,15 @@
+version: v1beta
+
+variables:
+  - VERSION
+  - COMMIT
+
+targets:
+  src/dotnet-nuget.csproj:
+    - type: build
+      with:
+        base: mcr.microsoft.com/dotnet/sdk:10.0
+    - type: nuget
+      with:
+        args:
+          SOURCELINK_STRICT: 0

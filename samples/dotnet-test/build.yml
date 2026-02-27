@@ -1,0 +1,14 @@
+version: v1beta
+
+variables:
+  - VERSION
+  - COMMIT
+
+targets:
+  src/dotnet-test.csproj:
+    - type: build
+      with:
+        base: mcr.microsoft.com/dotnet/sdk:10.0
+    - type: test
+      with:
+        base: mcr.microsoft.com/dotnet/sdk:10.0

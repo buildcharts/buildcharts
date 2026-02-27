@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>DotnetNuget.Sample</PackageId>
+    <Title>dotnet-nuget sample</Title>
+    <Description>BuildCharts sample for NuGet packaging.</Description>
+    <Authors>Eddie Tisma</Authors>
+  </PropertyGroup>
+</Project>

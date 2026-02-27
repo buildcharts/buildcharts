@@ -1,0 +1,15 @@
+version: v1beta
+
+variables:
+  - VERSION
+  - COMMIT
+
+targets:
+  src/dotnet-docker.csproj:
+    - type: build
+      with:
+        base: mcr.microsoft.com/dotnet/sdk:10.0
+    - type: docker
+      with:
+        base: mcr.microsoft.com/dotnet/runtime:10.0
+        tags: ["docker.io/eddietisma/dotnet-docker:${VERSION}-${COMMIT}"]
