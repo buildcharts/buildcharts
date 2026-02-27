@@ -39,8 +39,7 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
             {
                 var image = Environment.GetEnvironmentVariable("BUILDCHARTS_DIND_IMAGE") ?? CONTAINER_IMAGE;
 
-                var builder = new ContainerBuilder()
-                    .WithImage(image)
+                var builder = new ContainerBuilder(image)
                     .WithName(CONTAINER_NAME)
                     .WithPrivileged(true)
                     .WithPortBinding(2375, 2375)
