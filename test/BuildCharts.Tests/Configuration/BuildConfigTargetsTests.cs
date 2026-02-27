@@ -100,6 +100,6 @@ public sealed class BuildConfigTargetsTests : TestBase
         void Act() => ConfigurationManager.Deserializer.Deserialize<BuildConfig>(yaml);
 
         // Assert
-        Assert.ThrowsException<YamlException>(Act);
+        Assert.Throws<YamlException>(Act);
     }
 }
