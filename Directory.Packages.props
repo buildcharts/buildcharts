@@ -6,6 +6,10 @@
     <PackageVersion Include="AutoFixture" Version="4.18.1" />
     <PackageVersion Include="AutoFixture.AutoMoq" Version="4.18.1" />
     <PackageVersion Include="CliWrap" Version="3.9.0" />
+    <PackageVersion Include="coverlet.collector" Version="8.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageVersion>
     <PackageVersion Include="DnsClient" Version="1.8.0" />
     <PackageVersion Include="KubernetesClient" Version="17.0.4" />
     <PackageVersion Include="McMaster.Extensions.CommandLineUtils" Version="5.0.1" />
