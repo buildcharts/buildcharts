@@ -237,7 +237,7 @@ public class DockerHclGenerator
             }
             sb.AppendLine("  }");
 
-            // Emit entitlements.
+            // Emit allow.
             if (hasAllow)
             {
                 sb.AppendLine("  allow = \"${item.allow}\"");
