@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "v1beta.json",
+  "title": "BuildCharts Specification",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "examples": ["1.0.0"]
+    },
+    "variables": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!\\s*$)[^=]+$"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 1,
+            "propertyNames": { "type": "string", "minLength": 1 },
+            "additionalProperties": {
+              "anyOf": [
+                { "type": ["string", "null"] },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "default": { "type": ["string", "null"] }
+                  },
+                  "required": ["default"]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": { "type": ["string", "null"] }
+        }
+      ]
+    },
+    "plugins": {
+      "type": "array",
+      "items": { "type": "string" },
+      "examples": [["plugin-a", "plugin-b"]]
+    },
+    "targets": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/targetEntry" }
+    },
+    "types": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/typeMatrixDefinition" }
+    }
+  },
+  "required": ["targets"],
+  "$defs": {
+    "targetEntry": {
+      "oneOf": [
+        { "type": "string" },
+        { "$ref": "#/$defs/targetDefinition" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/targetItem" }
+        }
+      ]
+    },
+    "targetItem": {
+      "oneOf": [
+        { "type": "string" },
+        { "$ref": "#/$defs/targetDefinition" }
+      ]
+    },
+    "targetDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "unevaluatedProperties": false,
+      "properties": {
+        "type": {
+          "oneOf": [
+            { "type": "string" },
+            {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 1
+            }
+          ]
+        },
+        "with": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": ["type"]
+    },
+    "typeMatrixDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "unevaluatedProperties": false,
+      "properties": {
+        "matrix": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          }
+        }
+      }
+    }
+  }
+}

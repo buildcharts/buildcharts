@@ -1,8 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/eddietisma/buildcharts/main/schemas/v1beta.json
+
 version: v1beta
 
 variables:
-  - VERSION: "1.0.0"
-  - COMMIT: "local"
+  VERSION: "1.0.0"
+  COMMIT: "local"
 
 targets:
   buildcharts.sln:

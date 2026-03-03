@@ -2,6 +2,14 @@
 
 This document describes the structure of `build.yml`, which controls how `buildcharts` generates build pipelines.
 
+## Schema
+
+A JSON Schema for `build.yml` can be used for validation and intellisense.
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/eddietisma/buildcharts/main/schemas/v1beta.json
+```
+
 ## Top-level fields
 
 ### `version`
