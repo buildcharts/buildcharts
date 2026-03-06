@@ -1,7 +1,7 @@
 ###################################
 # Target: pre-docker
 ###################################
-FROM build AS publish
+FROM build AS pre-docker
 
 ARG BUILDCHARTS_SRC
 ARG CONFIGURATION=Release
@@ -14,11 +14,13 @@ RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
         --configuration "$CONFIGURATION" \
         --output "/output"
 
-# Ensure static entrypoint in final image.
+# Ensure static app.* startup files for ENTRYPOINT ["dotnet","/app/app.dll"].
+# Dotnet host also requires matching app.deps.json and app.runtimeconfig.json.
 RUN DLL_NAME=$(basename "$BUILDCHARTS_SRC" .csproj).dll && \
-    echo "#!/bin/sh" > /entrypoint.sh && \
-    echo "exec dotnet /app/$DLL_NAME \"\$@\"" >> /entrypoint.sh && \
-    chmod +x /entrypoint.sh
+    APP_NAME="${DLL_NAME%.dll}" && \
+    cp -f "/output/$DLL_NAME" /output/app.dll && \
+    cp -f "/output/$APP_NAME.deps.json" /output/app.deps.json && \
+    cp -f "/output/$APP_NAME.runtimeconfig.json" /output/app.runtimeconfig.json
 
 ###################################
 # Target: docker
@@ -26,6 +28,5 @@ RUN DLL_NAME=$(basename "$BUILDCHARTS_SRC" .csproj).dll && \
 FROM base AS docker
 
 WORKDIR /app
-COPY --link --from=publish /entrypoint.sh /entrypoint.sh
-COPY --link --from=publish /output .
-ENTRYPOINT ["/entrypoint.sh"]
+COPY --link --from=pre-docker /output .
+ENTRYPOINT ["dotnet", "/app/app.dll"]

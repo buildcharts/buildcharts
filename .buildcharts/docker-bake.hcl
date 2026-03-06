@@ -1,5 +1,9 @@
-variable "VERSION" {}
-variable "COMMIT" {}
+variable "VERSION" {
+  default = "1.0.0"
+}
+variable "COMMIT" {
+  default = "local"
+}
 
 target "_common" {
   args = {
@@ -37,7 +41,10 @@ target "nuget" {
   inherits = ["_common"]
   target = "nuget"
   name = "${item.name}"
-  output = ["type=cacheonly,mode=max"]
+  output = [
+    "type=cacheonly,mode=max",
+    "type=local,dest=.buildcharts/output/nuget"
+  ]
   matrix = {
     item = [
       {
@@ -83,17 +90,32 @@ target "docker" {
   dockerfile = "./.buildcharts/dotnet-docker/Dockerfile"
 }
 
-target "output" {
-  output = ["type=local,dest=.buildcharts/output"]
-  contexts = {
-    nuget = "target:nuget"
+target "test" {
+  inherits = ["_common"]
+  target = "test"
+  name = "${item.name}"
+  output = [
+    "type=cacheonly,mode=max",
+    "type=local,dest=.buildcharts/output/test"
+  ]
+  matrix = {
+    item = [
+      {
+        name = "test",
+        src  = "tests/BuildCharts.Tool/BuildCharts.Tests.csproj"
+      },
+    ]
   }
-  dockerfile-inline = <<EOF
-FROM scratch AS output
-COPY --link --from=nuget /output /nuget
-EOF
+  args = {
+    BUILDCHARTS_SRC = item.src
+    BUILDCHARTS_TYPE = "test"
+  }
+  contexts = {
+    build = "target:build"
+  }
+  dockerfile = "./.buildcharts/dotnet-test/Dockerfile"
 }
 
 group "default" {
-  targets = ["build", "nuget", "docker", "output"]
+  targets = ["build", "nuget", "docker", "test"]
 }

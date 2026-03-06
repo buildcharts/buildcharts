@@ -2,17 +2,17 @@ dependencies:
 - name: dotnet-build
   version: 0.0.1
   repository: oci://registry-1.docker.io/buildcharts/dotnet-build
-  digest: sha256:7408b82c4ce7dd864af24cc7415cdc10576d8e6c194e702b1fe85917af11a540
+  digest: sha256:4da50de6250055a119d51c620e2ed825529d281b2d27a9e2bb1f17b912d1a11c
 - name: dotnet-docker
   version: 0.0.2
   repository: oci://registry-1.docker.io/buildcharts/dotnet-docker
-  digest: sha256:c1545027142b542ed24b56d11cb12135b0df0cfc32107eca21862f7c79b1c259
+  digest: sha256:32b65ecc7aef0fee236814f0e1cdd63dc624fcda9d46e8202887624f55622e70
 - name: dotnet-nuget
   version: 0.0.1
   repository: oci://registry-1.docker.io/buildcharts/dotnet-nuget
-  digest: sha256:9719b5c78e88085bda27cc1dfb08accc61a3d29e8db011b3c408f7f0f3bf2955
+  digest: sha256:c58bf75a66bbcc271cd16c9480f67523e0b5d80fabec354ee591c0004af7d5e7
 - name: dotnet-test
   version: 0.0.1
   repository: oci://registry-1.docker.io/buildcharts/dotnet-test
-  digest: sha256:bf219269ebcaeae81d34a88d69084ea812c3f22eb6f6ed42aac9891d90cb27d4
+  digest: sha256:7b4bae285523bcc341b9be471bc5435f16e6a33322c1c3af3f75f70875c09207
 lockVersion: 1
