@@ -62,9 +62,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "configuration = [\"debug\", \"release\"]");
         StringAssert.Contains(hcl, "runtime = [\"win-x64\", \"win-arm64\"]");
 
@@ -84,9 +84,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "  allow = \"${item.allow}\"");
     }
 
@@ -116,9 +116,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "allow = [\"network.host\",\"security.insecure\"]");
         StringAssert.Contains(hcl, "allow = []");
     }
@@ -147,9 +147,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "  args = {");
         StringAssert.Contains(hcl, "    BUILDCHARTS_SRC = item.src");
         StringAssert.Contains(hcl, "    BUILDCHARTS_TYPE = \"publish\"");
@@ -172,9 +172,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "image = \"mcr.microsoft.com/dotnet/sdk:10.0\"");
         StringAssert.Contains(hcl, "features = \"aot,trimmed\"");
     }
@@ -190,9 +190,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "    base = \"docker-image://${item.base}\"");
     }
 
@@ -222,9 +222,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "base = \"mcr.microsoft.com/dotnet/aspnet:10.0\"");
         StringAssert.Contains(hcl, "base = \"\"");
     }
@@ -250,9 +250,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "  dockerfile = \"./.buildcharts/dotnet-publish/Dockerfile\"");
     }
 
@@ -287,25 +287,17 @@ public sealed class DockerHclGeneratorTests : TestBase
                 },
             ],
         };
-        _chartConfig.Dependencies = new List<ChartDependency>
-        {
-            new()
-            {
-                Alias = "publish",
-                Name = "dotnet-publish",
-            },
-            new()
-            {
-                Alias = "docker",
-                Name = "dotnet-docker",
-            },
-        };
+        _chartConfig.Dependencies =
+        [
+            new ChartDependency { Alias = "publish", Name = "dotnet-publish", },
+            new ChartDependency { Alias = "docker", Name = "dotnet-docker", },
+        ];
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "group \"default\" {");
         StringAssert.Contains(hcl, "  targets = [\"publish\", \"docker\"]");
     }
@@ -361,9 +353,9 @@ public sealed class DockerHclGeneratorTests : TestBase
         {
             // Act
             var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: true);
-            var hcl = result.ToString();
 
             // Assert
+            var hcl = result.ToString();
             StringAssert.Contains(hcl, "  dockerfile-inline = <<EOF");
             StringAssert.Contains(hcl, "FROM alpine:3.20");
             StringAssert.Contains(hcl, "RUN echo hello");
@@ -389,9 +381,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "  dockerfile = \"${item.dockerfile}\"");
     }
 
@@ -407,9 +399,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, $"target \"{type}\" {{");
         StringAssert.Contains(hcl, expectedLine1);
         StringAssert.Contains(hcl, expectedLine2);
@@ -433,9 +425,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "name = \"${item.name}_${runtime}\"");
         StringAssert.Contains(hcl, "runtime = [\"win-x64\", \"win-arm64\"]");
         StringAssert.Contains(hcl, "RUNTIME = \"${runtime}\"");
@@ -452,9 +444,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "  tags = \"${item.tags}\"");
     }
 
@@ -484,9 +476,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "tags = [\"repo/app:1.0.0\",\"repo/app:latest\"]");
         StringAssert.Contains(hcl, "tags = []");
     }
@@ -500,9 +492,9 @@ public sealed class DockerHclGeneratorTests : TestBase
 
         // Act
         var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-        var hcl = result.ToString();
 
         // Assert
+        var hcl = result.ToString();
         StringAssert.Contains(hcl, "  contexts = {");
         Assert.IsFalse(hcl.Contains("    build = \"target:build\"", StringComparison.Ordinal));
     }

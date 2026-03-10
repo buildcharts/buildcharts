@@ -100,6 +100,31 @@ public class ChartManager
             await UpdateChartLockAsync(chartLock, results, ct);
         }
     }
+
+    public bool TryGetBlobCacheForDigest(string reference, string cacheRoot, out string path)
+    {
+        path = string.Empty;
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            return false;
+        }
+
+        if (!ChartReference.TryParse(reference, out var chartReference) || !chartReference.IsDigest)
+        {
+            return false;
+        }
+
+        Directory.CreateDirectory(cacheRoot);
+
+        path = Path.Combine(cacheRoot, chartReference.Filename);
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     private static ChartLockDependency FindChartLockDependencyForCache(ChartLock chartLock, ChartReference chartReference)
     {
         var targetRepository = NormalizeRepository(chartReference.RepositoryFullPath);
@@ -144,30 +169,6 @@ public class ChartManager
         }
 
         await ConfigurationManager.SaveChartLockAsync(chartLock, ct);
-    }
-
-    private static bool TryGetBlobCacheForDigest(string reference, string cacheRoot, out string path)
-    {
-        path = string.Empty;
-        if (string.IsNullOrWhiteSpace(reference))
-        {
-            return false;
-        }
-
-        if (!ChartReference.TryParse(reference, out var chartReference) || !chartReference.IsDigest)
-        {
-            return false;
-        }
-
-        Directory.CreateDirectory(cacheRoot);
-
-        path = Path.Combine(cacheRoot, chartReference.Filename);
-        if (!File.Exists(path))
-        {
-            return false;
-        }
-
-        return true;
     }
 
     private static string NormalizeRepository(string repository)
