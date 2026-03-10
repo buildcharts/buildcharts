@@ -19,13 +19,13 @@ using System.Threading.Tasks;
 
 namespace BuildCharts.Tool.Oras;
 
-public static class OrasClient
+public class OrasClient : IOrasClient
 {
-    public static async Task<string> Pull(string reference, bool untar, string untarDir, string outputDir, bool useDigestName = false, CancellationToken ct = default)
+    public async Task<string> Pull(string reference, bool untar, string untarDir, string outputDir, CancellationToken ct = default)
     {
         if (!ChartReference.TryParse(reference, out var chartReference))
         {
-            throw new ArgumentException("Invalid chart reference");
+            throw new ArgumentException("Invalid chart reference: either tag or digest must be set.");
         }
 
         try
@@ -41,7 +41,8 @@ public static class OrasClient
                 Reference = new Reference(chartReference.Registry, chartReference.RepositoryPath),
             });
 
-            var (manifestDescriptor, manifestStream) = await orasRepository.Manifests.FetchAsync(chartReference.Tag, ct);
+            var manifestReference = chartReference.IsDigest ? chartReference.Digest : chartReference.Tag;
+            var (manifestDescriptor, manifestStream) = await orasRepository.Manifests.FetchAsync(manifestReference, ct);
             
             using var manifestJson = await JsonDocument.ParseAsync(manifestStream, cancellationToken: ct);
 
@@ -61,13 +62,12 @@ public static class OrasClient
                 Size = blobSize,
             }, ct);
 
-            var fileName = useDigestName
-                ? Path.Join(outputDir, "sha256", manifestDescriptor.Digest.Split(':', 2, StringSplitOptions.RemoveEmptyEntries)[1])
-                : Path.Join(outputDir, $"{chartReference.ChartName}.tgz");
+            var fileName = Path.Join(outputDir, chartReference.Filename);
 
             await using var blobFile = File.Create(fileName);
             await chartStream.CopyToAsync(blobFile, ct);
-            Console.WriteLine($"Pulled: {chartReference.Registry}/{chartReference.RepositoryPath}:{chartReference.Tag} ({blobSize} bytes)");
+            var referenceSuffix = chartReference.IsDigest ? $"@{chartReference.Digest}" : $":{chartReference.Tag}";
+            Console.WriteLine($"Pulled: {chartReference.Registry}/{chartReference.RepositoryPath}{referenceSuffix} ({blobSize} bytes)");
             Console.WriteLine($"Digest: {manifestDescriptor.Digest}");
   
             if (untar)
@@ -91,13 +91,8 @@ public static class OrasClient
         }
     }
 
-    public static async Task<string> GetManifestDigestAsync(string reference, CancellationToken ct = default)
+    public async Task<string> GetManifestDigestAsync(ChartReference chartReference, CancellationToken ct = default)
     {
-        if (!ChartReference.TryParse(reference, out var chartReference))
-        {
-            throw new ArgumentException("Invalid chart reference");
-        }
-
         var client = new Client
         {
             CredentialProvider = await DockerCredentialHelper.GetCredentialAsync(chartReference.Registry),
@@ -109,7 +104,8 @@ public static class OrasClient
             Reference = new Reference(chartReference.Registry, chartReference.RepositoryPath),
         });
 
-        var (manifestDescriptor, manifestStream) = await orasRepository.Manifests.FetchAsync(chartReference.Tag, ct);
+        var manifestReference = chartReference.IsDigest ? chartReference.Digest : chartReference.Tag;
+        var (manifestDescriptor, manifestStream) = await orasRepository.Manifests.FetchAsync(manifestReference, ct);
         await manifestStream.DisposeAsync();
 
         return manifestDescriptor.Digest;

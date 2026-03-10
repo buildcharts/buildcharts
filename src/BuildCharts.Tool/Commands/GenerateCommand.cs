@@ -30,6 +30,12 @@ public class GenerateCommand
     public bool Verbose { get; set; } = false;
 
     private readonly DockerHclGenerator _dockerHclGenerator = new();
+    private readonly ChartManager _chartManager;
+
+    public GenerateCommand(ChartManager chartManager)
+    {
+        _chartManager = chartManager;
+    }
 
     public async Task<int> OnExecuteAsync(CommandLineApplication app, CancellationToken ct)
     {
@@ -61,7 +67,7 @@ public class GenerateCommand
             await ChartValidator.ValidateLockFileAsync(chartConfig, chartLock, useLockFile, ct);
 
             Console.WriteLine("Pulling charts...");
-            await ChartManager.UpdateAsync(chartConfig, chartLock, useLockFile: useLockFile, updateChartLockFile: false, ct: ct);
+            await _chartManager.UpdateAsync(chartConfig, chartLock, useLockFile: useLockFile, updateChartLockFile: false, ct: ct);
 
             var plugins = PluginManager.LoadPlugins(buildConfig.Plugins);
             foreach (var plugin in plugins)

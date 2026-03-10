@@ -6,6 +6,7 @@
       //"commandLineArgs": "generate",
       //"commandLineArgs": "init",
       //"commandLineArgs": "pull registry-1.docker.io/buildcharts/dotnet-build:0.0.1",
+      //"commandLineArgs": "pull registry-1.docker.io/buildcharts/dotnet-build@sha256:4da50de6250055a119d51c620e2ed825529d281b2d27a9e2bb1f17b912d1a11c",
       //"commandLineArgs": "summary",
       //"commandLineArgs": "update",
       //"commandLineArgs": "version",

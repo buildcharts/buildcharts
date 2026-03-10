@@ -57,8 +57,14 @@ Pulls the OCI chart from the container registry. By default, it leverages Docker
 
 ```console
 # buildcharts pull oci://docker.io/buildcharts/dotnet-build:0.0.1                    
-Pulled: docker.io/buildcharts/dotnet-build:0.0.1 (582 bytes)
-Digest: sha256:f8fa3e928f25cc651f541a408222978941cde466beaaae7e60be6b5b1ca02ff9
+Pulled: docker.io/buildcharts/dotnet-build:0.0.1 (1123 bytes)
+Digest: sha256:4da50de6250055a119d51c620e2ed825529d281b2d27a9e2bb1f17b912d1a11c
+```
+
+```console
+# buildcharts pull oci://registry-1.docker.io/buildcharts/dotnet-build@sha256:4da50de6250055a119d51c620e2ed825529d281b2d27a9e2bb1f17b912d1a11c
+Pulled: registry-1.docker.io/buildcharts/dotnet-build@sha256:4da50de6250055a119d51c620e2ed825529d281b2d27a9e2bb1f17b912d1a11c (1123 bytes)
+Digest: sha256:4da50de6250055a119d51c620e2ed825529d281b2d27a9e2bb1f17b912d1a11c
 ```
 
 ### `buildcharts generate`

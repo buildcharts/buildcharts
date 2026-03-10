@@ -2,9 +2,13 @@
 
 namespace BuildCharts.Tool.Chart;
 
-internal readonly record struct ChartReference(string Original, string Registry, string RepositoryPath, string ChartName, string RepositoryParentPath, string Alias, string Tag)
+public readonly record struct ChartReference(string Original, string Registry, string RepositoryPath, string ChartName, string RepositoryParentPath, string Alias, string Tag, string Digest)
 {
     public string RepositoryFullPath => $"oci://{Registry}/{RepositoryPath}";
+    public bool IsDigest => !string.IsNullOrWhiteSpace(Digest);
+    public string Filename => IsDigest
+        ? $"{ChartName}@{Digest.Replace(':', '-')}.tgz"
+        : $"{ChartName}-{Tag}.tgz";
 
     public static bool TryParse(string reference, out ChartReference chartReference)
     {
@@ -45,12 +49,39 @@ internal readonly record struct ChartReference(string Original, string Registry,
 
         var tagIndex = repositoryAndMaybeTag.LastIndexOf(':');
         var lastSlash = repositoryAndMaybeTag.LastIndexOf('/');
+        var digestIndex = repositoryAndMaybeTag.LastIndexOf('@');
 
         string tag;
-        if (tagIndex > lastSlash)
+        string digest = null;
+        if (digestIndex > lastSlash)
+        {
+            digest = repositoryAndMaybeTag[(digestIndex + 1)..];
+            repositoryAndMaybeTag = repositoryAndMaybeTag[..digestIndex];
+
+            // Docker-compatible syntax allows repo:tag@sha256:...
+            // If a tag exists before '@', strip it from repository path and ignore it for resolution.
+            var tagBeforeDigestIndex = repositoryAndMaybeTag.LastIndexOf(':');
+            var lastSlashBeforeDigest = repositoryAndMaybeTag.LastIndexOf('/');
+            if (tagBeforeDigestIndex > lastSlashBeforeDigest)
+            {
+                repositoryAndMaybeTag = repositoryAndMaybeTag[..tagBeforeDigestIndex];
+            }
+
+            tag = null;
+
+            if (string.IsNullOrWhiteSpace(digest))
+            {
+                return false;
+            }
+        }
+        else if (tagIndex > lastSlash)
         {
             tag = repositoryAndMaybeTag[(tagIndex + 1)..];
             repositoryAndMaybeTag = repositoryAndMaybeTag[..tagIndex];
+            if (string.IsNullOrWhiteSpace(tag))
+            {
+                return false;
+            }
         }
         else
         {
@@ -80,7 +111,7 @@ internal readonly record struct ChartReference(string Original, string Registry,
             return false;
         }
 
-        chartReference = new ChartReference(reference, registry, repositoryAndMaybeTag, chartName, repositoryParentPath, alias, tag);
+        chartReference = new ChartReference(reference, registry, repositoryAndMaybeTag, chartName, repositoryParentPath, alias, tag, digest);
 
         return true;
     }

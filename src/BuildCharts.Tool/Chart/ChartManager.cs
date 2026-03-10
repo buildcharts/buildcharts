@@ -3,6 +3,7 @@ using BuildCharts.Tool.Configuration.Models;
 using BuildCharts.Tool.Oras;
 using ICSharpCode.SharpZipLib.GZip;
 using ICSharpCode.SharpZipLib.Tar;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Concurrent;
 using System.IO;
@@ -15,7 +16,16 @@ namespace BuildCharts.Tool.Chart;
 
 public class ChartManager
 {
-    public static async Task UpdateAsync(ChartConfig chartConfig, ChartLock chartLock, string outputDir = ".buildcharts", bool useLockFile = true, bool updateChartLockFile = true, CancellationToken ct = default)
+    private readonly IOrasClient _orasClient;
+    private readonly ChartOptions _options;
+
+    public ChartManager(IOrasClient orasClient, IOptions<ChartOptions> options)
+    {
+        _orasClient = orasClient;
+        _options = options.Value;
+    }
+
+    public async Task UpdateAsync(ChartConfig chartConfig, ChartLock chartLock, string outputDir = ".buildcharts", bool useLockFile = true, bool updateChartLockFile = true, CancellationToken ct = default)
     {
         if (chartConfig.Dependencies == null || chartConfig.Dependencies.Count == 0)
         {
@@ -42,11 +52,11 @@ public class ChartManager
             }
 
             // Folder to cache charts digest.
-            var cacheRoot = Path.Combine(Path.GetTempPath(), "buildcharts", "oci", "blobs");
-            Directory.CreateDirectory(cacheRoot);
+            Directory.CreateDirectory(_options.CachePath);
 
             // Resolve registry digest to detect new digest and assume version immutability.
-            var digest = await OrasClient.GetManifestDigestAsync(reference, cancellationToken);
+            var digest = await _orasClient.GetManifestDigestAsync(chartReference, cancellationToken);
+            var digestReference = $"{chartReference.Registry}/{chartReference.RepositoryPath}@{digest}";
 
             if (useLockFile)
             {
@@ -60,7 +70,7 @@ public class ChartManager
                 }
             }
             
-            var cacheHit = TryGetBlobCacheForDigest(digest, cacheRoot, out var cachedBlobFilePath);
+            var cacheHit = TryGetBlobCacheForDigest(digestReference, _options.CachePath, out var cachedBlobFilePath);
             if (cacheHit)
             {
                 Console.WriteLine($"Pulled: {chartReference.Registry}/{chartReference.RepositoryPath}:{chartReference.Tag} ({new FileInfo(cachedBlobFilePath).Length} bytes) (cached)");
@@ -74,7 +84,7 @@ public class ChartManager
             }
             else
             {
-                digest = await OrasClient.Pull(reference, untar: true, untarDir: outputDir, outputDir: cacheRoot, useDigestName: true, cancellationToken);
+                digest = await _orasClient.Pull(digestReference, untar: true, untarDir: outputDir, outputDir: _options.CachePath, ct: cancellationToken);
             }
 
             results.Add((chartReference, digest));
@@ -136,24 +146,28 @@ public class ChartManager
         await ConfigurationManager.SaveChartLockAsync(chartLock, ct);
     }
 
-    private static bool TryGetBlobCacheForDigest(string lockDigest, string cacheRoot, out string path)
+    private static bool TryGetBlobCacheForDigest(string reference, string cacheRoot, out string path)
     {
         path = string.Empty;
-        if (string.IsNullOrWhiteSpace(lockDigest))
+        if (string.IsNullOrWhiteSpace(reference))
         {
             return false;
         }
 
-        var digestParts = lockDigest.Split(':', 2, StringSplitOptions.RemoveEmptyEntries);
-        var digestAlgorithm = digestParts.Length > 1 ? digestParts[0] : "sha256";
-        var digestValue = digestParts.Length > 1 ? digestParts[1] : lockDigest;
+        if (!ChartReference.TryParse(reference, out var chartReference) || !chartReference.IsDigest)
+        {
+            return false;
+        }
 
-        cacheRoot = Path.Combine(cacheRoot, digestAlgorithm);
         Directory.CreateDirectory(cacheRoot);
 
-        path = Path.Combine(cacheRoot, digestValue);
+        path = Path.Combine(cacheRoot, chartReference.Filename);
+        if (!File.Exists(path))
+        {
+            return false;
+        }
 
-        return File.Exists(path);
+        return true;
     }
 
     private static string NormalizeRepository(string repository)

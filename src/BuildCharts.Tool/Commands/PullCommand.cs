@@ -16,7 +16,7 @@ Environment variables:
 )]
 public class PullCommand
 {
-    [Argument(0, Name = "reference", Description = "OCI reference in the form registry/repo[:tag]")]
+    [Argument(0, Name = "reference", Description = "OCI reference in the form registry/repo[:tag|@digest]")]
     [Required]
     public string Reference { get; set; }
 
@@ -29,11 +29,18 @@ public class PullCommand
     [Option("-o|--output <OUTPUT>", Description = "Output directory (default: current)")]
     public string OutputDir { get; set; } = Environment.CurrentDirectory;
 
+    private readonly IOrasClient _orasClient;
+
+    public PullCommand(IOrasClient orasClient)
+    {
+        _orasClient = orasClient;
+    }
+
     public async Task<int> OnExecuteAsync(CommandLineApplication app, CancellationToken ct)
     {
         try
         {
-            await OrasClient.Pull(Reference, Untar, UntarDir, OutputDir, ct: ct);
+            await _orasClient.Pull(Reference, Untar, UntarDir, OutputDir, ct: ct);
             return 0;
         }
         catch (Exception ex)
