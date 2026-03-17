@@ -1,5 +1,4 @@
 ﻿using BuildCharts.Tool.Chart;
-using BuildCharts.Tool.Configuration;
 using BuildCharts.Tool.Docker;
 using ICSharpCode.SharpZipLib.GZip;
 using ICSharpCode.SharpZipLib.Tar;
