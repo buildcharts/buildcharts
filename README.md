@@ -3,7 +3,7 @@
 [![dotnet tool](https://img.shields.io/nuget/v/dotnet-buildcharts?color=brightgreen&label=dotnet-buildcharts&logo=dotnet&logoColor=white)](https://www.nuget.org/packages/dotnet-buildcharts)
 [![docker](https://img.shields.io/docker/v/buildcharts/buildcharts?color=brightgreen&label=docker&logo=docker&logoColor=white)](https://hub.docker.com/r/buildcharts/buildcharts)
 
-`buildcharts` is a framework for defining and generating CI/CD pipelines using declarative metadata (`build.yml`) and templated pipeline definitions stored as OCI artifacts (similar to Helm charts). Enabling scalable, centralized, and consistent build processes.
+`buildcharts` is a framework for defining and generating CI pipelines using declarative metadata (`build.yml`) and templated pipeline definitions stored as OCI artifacts (similar to Helm charts). Enabling scalable, centralized, and consistent build processes.
 
 > [!NOTE]
 > For project assessment and rationale, see [docs/assessment.md](docs/assessment.md).
@@ -137,59 +137,28 @@ jobs:
   - Builds run inside Docker, ensuring isolated and reproducible environments.
   - Uses **high-level builds** with [Buildx Bake](https://docs.docker.com/build/bake/) configurations using BuildKit from the [Moby project](https://github.com/moby/moby).
   - Built-in features such as caching, scalability, metadata, provenance, Software Bill of Materials (SBOM).
-  
-Templates support:
-- 🐳 Docker image builds
-- 🧪 Test runners
-- 📦 NuGet packaging
-- 📂 Artifact collection
-- 🧰 Custom plugins (versioning, summaries, contributors, etc.)
-
-## Links
-- https://github.com/dotnet/arcade
-- https://github.com/facebook/buck
-- https://github.com/twitter/pants
-- https://nebula-plugins.github.io
-- https://kustomizer.dev
-- https://kustomizer.dev/guides/fluxcd
-- https://docs.docker.com/reference/dockerfile/#onbuild
-- https://docs.docker.com/build/bake/reference#target
-- https://docs.docker.com/build/bake/contexts/#deduplicate-context-transfer
-- https://docs.docker.com/build/cache/backends/registry/
-- https://docs.docker.com/build/concepts/context/#git-repositories
-- https://docs.docker.com/build/cache/backends/registry/
-- https://docs.docker.com/guides/bake/#exporting-build-artifacts
-- https://github.com/docker/metadata-action?tab=readme-ov-file
-- https://github.com/Azure/acr/blob/main/docs/container-registry-oras-artifacts.md
-- https://github.com/docker/buildx/issues/1991
-- https://github.com/docker/metadata-action?tab=readme-ov-file
-- https://github.com/microsoft/azure-pipelines-tasks/blob/master/docs/authoring/commands.md
-- https://github.com/moby/buildkit/blob/master/.github/workflows/buildkit.yml
-- https://github.com/docker/buildx/issues/1991
 
 ## CLI
 
-Read the [CLI documentation](/docs/cli.md) for more info.
+Read the [CLI documentation](https://buildcharts.dev/cli) for more info.
 
 ```bash
 buildcharts
-  init         # scaffold
-  update       # resolve templates + create lock
-  generate     # render CI/CD pipelines
-  diff         # show changes vs lock
-  validate     # schema and template check
   clean        # remove generated artifacts
-  version      # version info
+  diff         # show changes vs lock
+  explain      # inspection
+  generate     # render CI/CD pipelines
+  init         # scaffold
   package      # package chart
   pull         # pull chart 
   summary      # summarize build logs
+  update       # resolve templates + create lock
+  validate     # schema and template check
+  version      # version info
 ```
 
 ## Documentation
 
 - [docs/assessment.md](docs/assessment.md) – Assessment and rationale
-- [docs/cli.md](docs/cli.md) – CLI Tool
-- [docs/build.yml.md](docs/build.yml.md) – Metadata specification
-- [docs/plugins.md](docs/plugins.md) – Plugin system
-- [docs/github.md](docs/github.md) – GitHub integration
 - [buildcharts/charts](https://github.com/buildcharts/charts/) – Collection of build charts
+- [buildcharts/docs](https://buildcharts.dev)  - Documentation
