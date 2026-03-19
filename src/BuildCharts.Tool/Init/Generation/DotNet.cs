@@ -18,9 +18,11 @@ public static class DotNet
         var projectTypeMap = new Dictionary<string, TargetConfig>();
 
         var csprojFiles = Directory.GetFiles(".", "*.csproj", SearchOption.AllDirectories);
-        var sdkVersion = await DetectSdkVersion(ct, csprojFiles) ?? "9.0";
+        var sdkVersion = await DetectSdkVersion(ct, csprojFiles) ?? "10.0";
 
         var sb = new StringBuilder();
+        sb.AppendLine("# yaml-language-server: $schema=https://raw.githubusercontent.com/eddietisma/buildcharts/main/schemas/v1beta.json");
+        sb.AppendLine();
         sb.AppendLine("version: v1beta");
         sb.AppendLine();
         sb.AppendLine("variables:");
@@ -143,7 +145,7 @@ public static class DotNet
                 var version = versionProp.GetString(); // e.g. "9.0.302"
                 if (!string.IsNullOrWhiteSpace(version))
                 {
-                    // keep only the major.minor part -> "9.0"
+                    // keep only the major.minor part -> "10.0"
                     var parts = version.Split('.');
                     if (parts.Length >= 2)
                     {
