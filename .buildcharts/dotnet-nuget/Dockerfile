@@ -72,6 +72,9 @@ RUN set -eu; \
     fi
 
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    --mount=type=cache,target=/root/.local/share/NuGet/v3-cache \
+    --mount=type=cache,target=/root/.local/share/NuGet/plugins-cache \
+    --mount=type=cache,target=/tmp/NuGetScratchroot \
     set -eu; \
     mkdir -p /output; \
     PATHS_INCLUDE="${PATHS_INCLUDE:-}"; \
