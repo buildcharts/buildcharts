@@ -11,10 +11,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    
-    permissions:
-      actions: write
-      contents: read
+
 
     steps:
       - name: Checkout
@@ -57,6 +54,12 @@ jobs:
             --api-key ${{ secrets.NUGET_API_KEY }} \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
+
+      - name: Upload release assets
+        if: ${{ github.event_name == 'release' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: .buildcharts/output/publish/*.zip
 
       - name: BuildCharts Summary
         uses: buildcharts/summary-action@v1

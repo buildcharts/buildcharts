@@ -13,6 +13,7 @@ targets:
       base: mcr.microsoft.com/dotnet/sdk:10.0
 
   src/BuildCharts.Tool/BuildCharts.Tool.csproj:
+    - type: publish
     - type: nuget
     - type: docker
       with:
@@ -21,3 +22,8 @@ targets:
 
   tests/BuildCharts.Tool/BuildCharts.Tests.csproj:
     type: test
+
+types:
+  publish:
+    matrix:
+      runtime: ["win-x64", "win-arm64"]

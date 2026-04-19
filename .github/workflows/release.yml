@@ -1,10 +1,10 @@
 on:
   release:
-    types: [ released ]
+    types: [released, prereleased]
 
 permissions:
   actions: write
-  contents: read
+  contents: write
 
 jobs:
   determine_version:
@@ -19,8 +19,28 @@ jobs:
 
   build:
     needs: determine_version
+    permissions:
+      contents: write
     uses: ./.github/workflows/build.yml
     with:
       version: ${{ needs.determine_version.outputs.version }}
       commit: ${{ github.sha }}
     secrets: inherit
+
+  publish-winget:
+    needs: [build]
+    if: github.event.action == 'released' || github.event.action == 'prereleased'
+    runs-on: windows-latest
+    steps:
+      - name: Sync winget-pkgs fork
+        run: gh repo sync "${{ github.repository_owner }}/winget-pkgs" -b master
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
+      - uses: vedantmgoyal9/winget-releaser@main
+        with:
+          identifier: buildcharts
+          fork-user: ${{ github.repository_owner }}
+          max-versions-to-keep: 5
+          token: ${{ secrets.WINGET_TOKEN }}
+          installers-regex: 'buildcharts_.*_win-(x64|arm64)\.zip$'

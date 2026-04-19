@@ -37,6 +37,34 @@ target "build" {
   dockerfile = "./.buildcharts/dotnet-build/Dockerfile"
 }
 
+target "publish" {
+  inherits = ["_common"]
+  target = "publish"
+  name = "${item.name}_${runtime}"
+  output = [
+    "type=cacheonly,mode=max",
+    "type=local,dest=.buildcharts/output/publish"
+  ]
+  matrix = {
+    item = [
+      {
+        name = "publish",
+        src  = "src/BuildCharts.Tool/BuildCharts.Tool.csproj"
+      },
+    ]
+    runtime = ["win-x64", "win-arm64"]
+  }
+  args = {
+    BUILDCHARTS_SRC = item.src
+    BUILDCHARTS_TYPE = "publish"
+    RUNTIME = "${runtime}"
+  }
+  contexts = {
+    build = "target:build"
+  }
+  dockerfile = "./.buildcharts/dotnet-publish/Dockerfile"
+}
+
 target "nuget" {
   inherits = ["_common"]
   target = "nuget"
@@ -117,5 +145,5 @@ target "test" {
 }
 
 group "default" {
-  targets = ["build", "nuget", "docker", "test"]
+  targets = ["build", "publish", "nuget", "docker", "test"]
 }

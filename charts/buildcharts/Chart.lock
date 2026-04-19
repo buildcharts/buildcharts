@@ -11,6 +11,10 @@ dependencies:
   version: 0.0.1
   repository: oci://registry-1.docker.io/buildcharts/dotnet-nuget
   digest: sha256:7f9225c5d872f462d60cb1ea1c74b394153288ca58e6449fdcfed62c9c623b34
+- name: dotnet-publish
+  version: 0.0.1
+  repository: oci://registry-1.docker.io/buildcharts/dotnet-publish
+  digest: sha256:7c164b0855ee0da417c7245bb0da122f07e51e9debb54d7d411da318facb5a39
 - name: dotnet-test
   version: 0.0.1
   repository: oci://registry-1.docker.io/buildcharts/dotnet-test
