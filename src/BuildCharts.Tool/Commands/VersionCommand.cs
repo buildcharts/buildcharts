@@ -1,5 +1,6 @@
 using McMaster.Extensions.CommandLineUtils;
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -14,11 +15,9 @@ public class VersionCommand
     {
         try
         {
-            var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
-            var location = assembly.Location;
-
-            var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-            var buildDate = File.GetLastWriteTimeUtc(location).ToString("yyyy-MM-ddTHH:mm:ssZ");
+            var assembly = typeof(Program).Assembly;
+            var version = GetProductVersion(assembly);
+            var buildDate = GetBuildDate(assembly);
             var os = RuntimeInformation.OSDescription.Trim();
             var arch = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
             var totalMemory = GetTotalPhysicalMemory();
@@ -39,6 +38,42 @@ public class VersionCommand
             Console.Error.WriteLine($"Error: {ex.Message}");
             return 1;
         }
+    }
+
+    private static string GetProductVersion(Assembly assembly)
+    {
+        var infoVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(infoVersion))
+        {
+            return infoVersion;
+        }
+
+        var fallbackVersion = assembly.GetName().Version?.ToString() ?? "unknown";
+        var assemblyLocation = assembly.Location;
+        if (string.IsNullOrWhiteSpace(assemblyLocation))
+        {
+            return fallbackVersion;
+        }
+
+        var fvi = FileVersionInfo.GetVersionInfo(assemblyLocation);
+        return !string.IsNullOrWhiteSpace(fvi.ProductVersion) ? fvi.ProductVersion : fallbackVersion;
+    }
+
+    private static string GetBuildDate(Assembly assembly)
+    {
+        var buildPath = assembly.Location;
+
+        if (string.IsNullOrWhiteSpace(buildPath))
+        {
+            buildPath = Environment.ProcessPath;
+        }
+
+        if (string.IsNullOrWhiteSpace(buildPath) || !File.Exists(buildPath))
+        {
+            return "unknown";
+        }
+
+        return File.GetLastWriteTimeUtc(buildPath).ToString("yyyy-MM-ddTHH:mm:ssZ");
     }
 
     private static long? GetTotalPhysicalMemory()
