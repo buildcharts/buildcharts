@@ -6,7 +6,7 @@
 		<AssemblyName>buildcharts</AssemblyName>
 		<RootNamespace>BuildCharts.Tool</RootNamespace>
 		<IsPackable>true</IsPackable>
-    <NoWarn>$(NoWarn);IDE0060</NoWarn>
+		<NoWarn>$(NoWarn);IDE0060</NoWarn>
 		<!--<Nullable>enable</Nullable>-->
 
 		<!--Tool-->
