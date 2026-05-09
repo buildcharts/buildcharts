@@ -48,6 +48,11 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
                     .WithCleanUp(false)
                     .WithWaitStrategy(Wait.ForUnixContainer().UntilExternalTcpPortIsAvailable(2375));
 
+                if (Environment.GetEnvironmentVariable("BUILDCHARTS_DIND_VOLUME") == "true")
+                {
+                    builder.WithVolumeMount("buildcharts-dind", "/var/lib/docker");
+                }
+
                 var container = builder.Build();
                 await container.StartAsync(ct);
 
