@@ -1,6 +1,5 @@
 using McMaster.Extensions.CommandLineUtils;
 using System;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -40,7 +39,7 @@ public class VersionCommand
         }
     }
 
-    private static string GetProductVersion(Assembly assembly)
+    internal static string GetProductVersion(Assembly assembly)
     {
         var infoVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
         if (!string.IsNullOrWhiteSpace(infoVersion))
@@ -48,25 +47,12 @@ public class VersionCommand
             return infoVersion;
         }
 
-        var fallbackVersion = assembly.GetName().Version?.ToString() ?? "unknown";
-        var assemblyLocation = assembly.Location;
-        if (string.IsNullOrWhiteSpace(assemblyLocation))
-        {
-            return fallbackVersion;
-        }
-
-        var fvi = FileVersionInfo.GetVersionInfo(assemblyLocation);
-        return !string.IsNullOrWhiteSpace(fvi.ProductVersion) ? fvi.ProductVersion : fallbackVersion;
+        return assembly.GetName().Version?.ToString() ?? "unknown";
     }
 
     private static string GetBuildDate(Assembly assembly)
     {
-        var buildPath = assembly.Location;
-
-        if (string.IsNullOrWhiteSpace(buildPath))
-        {
-            buildPath = Environment.ProcessPath;
-        }
+        var buildPath = GetBuildPath(assembly);
 
         if (string.IsNullOrWhiteSpace(buildPath) || !File.Exists(buildPath))
         {
@@ -74,6 +60,17 @@ public class VersionCommand
         }
 
         return File.GetLastWriteTimeUtc(buildPath).ToString("yyyy-MM-ddTHH:mm:ssZ");
+    }
+
+    private static string GetBuildPath(Assembly assembly)
+    {
+        var assemblyPath = Path.Combine(AppContext.BaseDirectory, $"{assembly.GetName().Name}.dll");
+        if (File.Exists(assemblyPath))
+        {
+            return assemblyPath;
+        }
+
+        return Environment.ProcessPath;
     }
 
     private static long? GetTotalPhysicalMemory()
