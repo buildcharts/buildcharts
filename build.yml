@@ -21,7 +21,7 @@ targets:
           base: docker-image://mcr.microsoft.com/dotnet/runtime:10.0
         tags: ["docker.io/buildcharts/buildcharts:${VERSION}-${COMMIT}"]
 
-  tests/BuildCharts.Tool/BuildCharts.Tests.csproj:
+  tests/BuildCharts.Tests/BuildCharts.Tests.csproj:
     type: test
 
 types:
