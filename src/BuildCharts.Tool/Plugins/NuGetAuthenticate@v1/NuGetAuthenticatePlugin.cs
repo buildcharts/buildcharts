@@ -52,6 +52,7 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
             {
                 Console.WriteLine($"Using {endpointsSource} from environment");
 
+                WriteValueToFile("ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN", tokenEnv);
                 WriteValueToFile("ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS", endpointsEnv);
             }
             else if (!string.IsNullOrWhiteSpace(tokenEnv))
@@ -66,6 +67,7 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
                 });
 
                 var feedEndpoints = JsonSerializer.Serialize(new { endpointCredentials }, new JsonSerializerOptions { WriteIndented = true });
+                WriteValueToFile("ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN", tokenEnv);
                 WriteValueToFile("ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS", feedEndpoints);
             }
             else
@@ -98,6 +100,7 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
                 });
 
                 var feedEndpoints = JsonSerializer.Serialize(new { endpointCredentials }, new JsonSerializerOptions { WriteIndented = true });
+                WriteValueToFile("ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN", tokenEnv);
                 WriteValueToFile("ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS", feedEndpoints);
             }
         }

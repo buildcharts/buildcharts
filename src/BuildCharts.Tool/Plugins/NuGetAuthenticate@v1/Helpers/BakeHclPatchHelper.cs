@@ -9,6 +9,7 @@ public static class BakeHclPatchHelper
     private const string SECRET_SNIPPET =
         "  secret = [\n" +
         "    \"type=file,id=ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS,src=.buildcharts/secrets/ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS\",\n" +
+        "    \"type=file,id=ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN,src=.buildcharts/secrets/ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN\"\n" +
         "  ]\n";
 
     /// <summary>
