@@ -89,7 +89,7 @@ public class GenerateCommand
 
             Console.WriteLine("");
             Console.WriteLine("✅ Generated files:");
-            Console.WriteLine("   • \u001b[2mdocker-bake.hcl\u001b[22m");
+            Console.WriteLine("   • \u001b[2m.buildcharts/docker-bake.hcl\u001b[22m");
             Console.WriteLine("");
 
             return 0;
