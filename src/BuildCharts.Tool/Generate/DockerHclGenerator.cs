@@ -12,7 +12,7 @@ namespace BuildCharts.Tool.Generate;
 public class DockerHclGenerator
 {
     private readonly HashSet<string> _usedNames = [];
-    
+
     public async Task<StringBuilder> GenerateAsync(BuildConfig buildConfig, ChartConfig chartConfig, bool useInlineDockerFile)
     {
         var sb = new StringBuilder();
@@ -58,23 +58,28 @@ public class DockerHclGenerator
         {
             var type = targetGroup.Key;
             var chartAlias = chartConfig.Dependencies.FirstOrDefault(d => d.Alias.Equals(type, StringComparison.OrdinalIgnoreCase))?.Name;
-            var targets = targetGroup.Select(x => new TargetItem(x.Key, x.def, ExtractArgs(x.def.With))).ToList();
-            var matrixAxes = CollectMatrixAxes(buildConfig, type);
+            var targets = targetGroup.Select(x => new TargetItem(x.Key, x.def, ExtractArgs(x.def.With), ExtractContexts(x.def.With))).ToList();
+
+            var typeMatrix = CollectTypeMatrix(buildConfig, type);
+            var typeContexts = CollectTypeContexts(buildConfig, type);
+
             var argKeys = CollectArgKeys(targets);
+            var contextKeys = CollectContextKeys(targets);
 
             var hasArgs = argKeys.Count > 0;
+            var hasContexts = contextKeys.Count > 0;
             var hasTags = targets.Any(x => x.Definition.With.ContainsKey("tags"));
-            var hasBase = targets.Any(x => x.Definition.With.ContainsKey("base"));
             var hasAllow = targets.Any(x => x.Definition.With.ContainsKey("allow"));
             var hasDockerfile = targets.Any(x => x.Definition.With.ContainsKey("dockerfile"));
-            var hasMatrix = matrixAxes.Count > 0;
-            var matrixSuffix = string.Join("_", matrixAxes.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).Select(k => $"${{{k}}}"));
+            var hasTypeMatrix = typeMatrix.Count > 0;
+            var hasTypeContexts = typeContexts.Count > 0;
+            var matrixSuffix = string.Join("_", typeMatrix.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).Select(k => $"${{{k}}}"));
 
             sb.AppendLine($"target \"{type}\" {{");
             sb.AppendLine($"  inherits = [\"_common\"]");
             sb.AppendLine($"  target = \"{type}\"");
 
-            if (hasMatrix)
+            if (hasTypeMatrix)
             {
                 sb.AppendLine($"  name = \"${{item.name}}_{matrixSuffix}\"");
             }
@@ -140,19 +145,6 @@ public class DockerHclGenerator
                     }
                 }
 
-                // Emit base in matrix.
-                if (hasBase)
-                {
-                    if (item.Definition.With.TryGetValue("base", out var baseImage))
-                    {
-                        sb.AppendLine($"        base = \"{baseImage}\"");
-                    }
-                    else
-                    {
-                        sb.AppendLine($"        base = \"\"");
-                    }
-                }
-
                 // Emit allow in matrix.
                 if (hasAllow)
                 {
@@ -165,6 +157,18 @@ public class DockerHclGenerator
                     {
                         sb.AppendLine($"        allow = []");
                     }
+                }
+
+                // Emit contexts in matrix.
+                if (hasContexts)
+                {
+                    sb.AppendLine("        contexts = {");
+                    foreach (var contextKey in contextKeys)
+                    {
+                        sb.AppendLine($"          {contextKey} = \"{Escape(FormatContextValue(item.Contexts, contextKey))}\"");
+                    }
+
+                    sb.AppendLine("        }");
                 }
 
                 // Emit dockerfile in matrix.
@@ -186,9 +190,9 @@ public class DockerHclGenerator
             sb.AppendLine("    ]");
 
             // Emit new matrix.
-            if (hasMatrix)
+            if (hasTypeMatrix)
             {
-                foreach (var axis in matrixAxes.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+                foreach (var axis in typeMatrix.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
                 {
                     var values = axis.Value.Select(v => $"\"{v}\"");
                     sb.AppendLine($"    {axis.Key} = [{string.Join(", ", values)}]");
@@ -208,9 +212,10 @@ public class DockerHclGenerator
                     sb.AppendLine($"    {argKey.ToUpperSnakeCaseInvariant()} = \"${{item.{argKey}}}\"");
                 }
             }
-            if (hasMatrix)
+
+            if (hasTypeMatrix)
             {
-                foreach (var axis in matrixAxes.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+                foreach (var axis in typeMatrix.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
                 {
                     var axisKey = axis.Key.ToUpperSnakeCaseInvariant();
                     sb.AppendLine($"    {axisKey} = \"${{{axis.Key}}}\"");
@@ -231,9 +236,20 @@ public class DockerHclGenerator
             {
                 sb.AppendLine("    build = \"target:build\"");
             }
-            if (hasBase)
+
+            if (hasContexts)
             {
-                sb.AppendLine("    base = \"docker-image://${item.base}\"");
+                foreach (var contextKey in contextKeys)
+                {
+                    sb.AppendLine($"    {contextKey} = \"${{item.contexts.{contextKey}}}\"");
+                }
+            }
+            if (hasTypeContexts)
+            {
+                foreach (var (contextKey, contextValue) in typeContexts.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+                {
+                    sb.AppendLine($"    {contextKey} = \"{Escape(contextValue)}\"");
+                }
             }
             sb.AppendLine("  }");
 
@@ -287,11 +303,30 @@ public class DockerHclGenerator
             .ToList();
     }
 
+    private static List<string> CollectContextKeys(IEnumerable<TargetItem> targets)
+    {
+        return targets
+            .SelectMany(t => t.Contexts.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private static Dictionary<string, object> ExtractArgs(IReadOnlyDictionary<string, object> with)
     {
         if (with.TryGetValue("args", out var rawArgs) && rawArgs is Dictionary<object, object> args)
         {
             return args.ToDictionary(k => k.Key.ToString(), v => v.Value);
+        }
+
+        return [];
+    }
+
+    private static Dictionary<string, string> ExtractContexts(IReadOnlyDictionary<string, object> with)
+    {
+        if (with.TryGetValue("contexts", out var rawContexts) && rawContexts is Dictionary<object, object> contexts)
+        {
+            return contexts.ToDictionary(k => k.Key.ToString(), v => v.Value?.ToString() ?? string.Empty);
         }
 
         return [];
@@ -319,13 +354,23 @@ public class DockerHclGenerator
             .Where(s => !string.IsNullOrEmpty(s));
         return string.Join(",", items);
     }
-    
+
+    private static string FormatContextValue(IReadOnlyDictionary<string, string> contexts, string key)
+    {
+        if (!contexts.TryGetValue(key, out var value) || value is null)
+        {
+            return string.Empty;
+        }
+
+        return value;
+    }
+
     private static string Escape(string value) =>
         value
             .Replace("\\", "\\\\")
             .Replace("\"", "\\\"");
 
-    private static Dictionary<string, List<string>> CollectMatrixAxes(BuildConfig buildConfig, string type)
+    private static Dictionary<string, List<string>> CollectTypeMatrix(BuildConfig buildConfig, string type)
     {
         if (!buildConfig.Types.TryGetValue(type, out var typeMatrix) || typeMatrix?.Matrix == null)
         {
@@ -347,6 +392,16 @@ public class DockerHclGenerator
         }
 
         return normalized;
+    }
+
+    private static Dictionary<string, string> CollectTypeContexts(BuildConfig buildConfig, string type)
+    {
+        if (!buildConfig.Types.TryGetValue(type, out var typeContexts) || typeContexts?.Contexts == null)
+        {
+            return [];
+        }
+
+        return new Dictionary<string, string>(typeContexts.Contexts, StringComparer.OrdinalIgnoreCase);
     }
 
     private string CreateUniqueName(BuildConfig buildConfig, string src, string type)
@@ -382,6 +437,5 @@ public class DockerHclGenerator
 
         return name;
     }
-
-    private record TargetItem(string Key, TargetDefinition Definition, Dictionary<string, object> Args);
+    private record TargetItem(string Key, TargetDefinition Definition, Dictionary<string, object> Args, Dictionary<string, string> Contexts);
 }

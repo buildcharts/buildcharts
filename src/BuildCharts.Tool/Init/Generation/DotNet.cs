@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -30,7 +30,7 @@ public static class DotNet
         sb.AppendLine("  - COMMIT");
         sb.AppendLine();
         sb.AppendLine("targets:");
-        
+
         var slnFile = Directory.GetFiles(".", "*.sln", SearchOption.AllDirectories).FirstOrDefault()
                       ?? Directory.GetFiles(".", "*.slnx", SearchOption.AllDirectories).FirstOrDefault()
                       ?? throw new FileNotFoundException("No .sln file found in the root or src directory.");
@@ -40,7 +40,10 @@ public static class DotNet
         // Add .sln build target.
         projectTypeMap[slnRelPath] = new TargetConfig(["build"], new Dictionary<string, object>
         {
-            ["base"] = $"mcr.microsoft.com/dotnet/sdk:{sdkVersion}",
+            ["contexts"] = new Dictionary<string, string>
+            {
+                ["base"] = $"docker-image://mcr.microsoft.com/dotnet/sdk:{sdkVersion}",
+            },
         });
 
         // Add projects with type detection.
@@ -71,7 +74,10 @@ public static class DotNet
                 types.Add("docker");
 
                 var projectName = Path.GetFileNameWithoutExtension(file).ToLowerInvariant();
-                with["base"] = $"mcr.microsoft.com/dotnet/aspnet:{sdkVersion}";
+                with["contexts"] = new Dictionary<string, string>
+                {
+                    ["base"] = $"docker-image://mcr.microsoft.com/dotnet/aspnet:{sdkVersion}",
+                };
                 with["tags"] = new[] { $"docker.io/username/{projectName}:${{VERSION}}-${{COMMIT}}" };
             }
 
@@ -107,18 +113,27 @@ public static class DotNet
                 sb.AppendLine("    with:");
                 foreach (var kvp in with)
                 {
-                    sb.Append($"      {kvp.Key}: ");
-
-                    if (kvp.Value is string s)
+                    if (kvp.Value is IReadOnlyDictionary<string, string> stringDictionary)
                     {
+                        sb.AppendLine($"      {kvp.Key}:");
+                        foreach (var item in stringDictionary)
+                        {
+                            sb.AppendLine($"        {item.Key}: {item.Value}");
+                        }
+                    }
+                    else if (kvp.Value is string s)
+                    {
+                        sb.Append($"      {kvp.Key}: ");
                         sb.AppendLine(s);
                     }
                     else if (kvp.Value is IEnumerable<string> stringList)
                     {
+                        sb.Append($"      {kvp.Key}: ");
                         sb.AppendLine($"[{string.Join(", ", stringList.Select(t => $"\"{t}\""))}]");
                     }
                     else
                     {
+                        sb.Append($"      {kvp.Key}: ");
                         sb.AppendLine(kvp.Value.ToString());
                     }
                 }

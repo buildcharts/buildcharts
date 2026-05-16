@@ -98,6 +98,25 @@ public sealed class ChartValidatorTests : TestBase
     }
 
     [TestMethod]
+    public async Task ValidateConfigAsync_ShouldSucceed_WhenTargetContextNameIsBase()
+    {
+        // Arrange
+        _buildConfig.Targets["buildcharts.sln"][0].With = new Dictionary<string, object>
+        {
+            ["contexts"] = new Dictionary<object, object>
+            {
+                ["base"] = "docker-image://mcr.microsoft.com/dotnet/aspnet:10.0",
+            },
+        };
+
+        // Act
+        var result = ChartValidator.ValidateConfigAsync(_buildConfig, _chartConfig);
+
+        // Assert
+        await result;
+    }
+
+    [TestMethod]
     public void ValidateConfigAsync_ShouldThrowInvalidOperation_WhenBuildTargetCountGreaterThanOne()
     {
         // Arrange
@@ -127,6 +146,45 @@ public sealed class ChartValidatorTests : TestBase
 
         // Assert
         StringAssert.Contains(result.Message, "Missing build target");
+    }
+
+    [TestMethod]
+    [DataRow("type-reserved-name", "reserved")]
+    [DataRow("target-invalid-name", "valid HCL identifier")]
+    [DataRow("target-empty-value", "must not be empty")]
+    [DataRow("target-not-mapping", "must be a mapping")]
+    public void ValidateConfigAsync_ShouldThrowInvalidOperation_WhenContextIsInvalid(string scenario, string expectedMessage)
+    {
+        // Arrange
+        if (scenario == "type-reserved-name")
+        {
+            _buildConfig.Types["nuget"] = new TypeMatrixDefinition
+            {
+                Contexts = new Dictionary<string, string>
+                {
+                    ["build"] = ".git",
+                },
+            };
+        }
+        else if (scenario == "target-not-mapping")
+        {
+            _buildConfig.Targets["buildcharts.sln"][0].With["contexts"] = ".git";
+        }
+        else
+        {
+            var contexts = new Dictionary<object, object>
+            {
+                [scenario == "target-invalid-name" ? "bad-name" : "git"] = scenario == "target-empty-value" ? "" : ".git",
+            };
+            _buildConfig.Targets["buildcharts.sln"][0].With["contexts"] = contexts;
+        }
+
+        // Act
+        Action action = () => ChartValidator.ValidateConfigAsync(_buildConfig, _chartConfig).GetAwaiter().GetResult();
+
+        // Assert
+        var result = Assert.Throws<InvalidOperationException>(action);
+        StringAssert.Contains(result.Message, expectedMessage);
     }
 
     [TestMethod]

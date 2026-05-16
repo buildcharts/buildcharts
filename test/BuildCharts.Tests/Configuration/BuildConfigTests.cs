@@ -86,6 +86,34 @@ public sealed class BuildConfigTests : TestBase
     }
 
     [TestMethod]
+    public void ReadBuildConfigAsync_ShouldParseTargetWithContextsMapping()
+    {
+        // Arrange
+        var yaml =
+            """
+            version: v1beta
+
+            targets:
+              buildcharts.sln:
+                type: build
+                with:
+                  contexts:
+                    base: docker-image://mcr.microsoft.com/dotnet/sdk:10.0
+            """;
+
+        // Act
+        var config = ConfigurationManager.Deserializer.Deserialize<BuildConfig>(yaml);
+
+        // Assert
+        var target = config.Targets["buildcharts.sln"][0];
+        Assert.IsTrue(target.With.TryGetValue("contexts", out var rawContexts));
+        Assert.IsInstanceOfType<Dictionary<object, object>>(rawContexts);
+
+        var contexts = (Dictionary<object, object>)rawContexts;
+        Assert.AreEqual("docker-image://mcr.microsoft.com/dotnet/sdk:10.0", contexts["base"]);
+    }
+
+    [TestMethod]
     public void ReadBuildConfigAsync_ShouldParseTypeArrayMapping()
     {
         // Arrange
@@ -109,6 +137,32 @@ public sealed class BuildConfigTests : TestBase
 
         CollectionAssert.AreEquivalent(new[] { "build", "nuget" }, types);
         Assert.IsTrue(targets.All(t => t.With.TryGetValue("base", out var baseImage) && Equals(baseImage, "mcr.microsoft.com/dotnet/sdk:10.0")));
+    }
+
+    [TestMethod]
+    public void ReadBuildConfigAsync_ShouldParseTypeContexts()
+    {
+        // Arrange
+        var yaml =
+            """
+            version: v1beta
+
+            targets:
+              buildcharts.sln:
+                type: build
+
+            types:
+              nuget:
+                contexts:
+                  git: .git
+            """;
+
+        // Act
+        var config = ConfigurationManager.Deserializer.Deserialize<BuildConfig>(yaml);
+
+        // Assert
+        var contexts = config.Types["nuget"].Contexts;
+        Assert.AreEqual(".git", contexts["git"]);
     }
 
     [TestMethod]

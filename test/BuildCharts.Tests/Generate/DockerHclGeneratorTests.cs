@@ -180,56 +180,6 @@ public sealed class DockerHclGeneratorTests : TestBase
     }
 
     [TestMethod]
-    public async Task GenerateAsync_ShouldEmitBaseContextInTarget()
-    {
-        // Arrange
-        _buildConfig.Targets["src/dotnet-krp/dotnet-krp.csproj"][0].With = new Dictionary<string, object>
-        {
-            ["base"] = "mcr.microsoft.com/dotnet/aspnet:10.0",
-        };
-
-        // Act
-        var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-
-        // Assert
-        var hcl = result.ToString();
-        StringAssert.Contains(hcl, "    base = \"docker-image://${item.base}\"");
-    }
-
-    [TestMethod]
-    public async Task GenerateAsync_ShouldEmitBaseInMatrix()
-    {
-        // Arrange
-        _buildConfig.Targets = new Dictionary<string, List<TargetDefinition>>
-        {
-            ["src/dotnet-krp/dotnet-krp.csproj"] =
-            [
-                new TargetDefinition
-                {
-                    Type = "publish",
-                    With = new Dictionary<string, object>
-                    {
-                        ["base"] = "mcr.microsoft.com/dotnet/aspnet:10.0",
-                    },
-                },
-                new TargetDefinition
-                {
-                    Type = "publish",
-                    With = new Dictionary<string, object>(),
-                },
-            ],
-        };
-
-        // Act
-        var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
-
-        // Assert
-        var hcl = result.ToString();
-        StringAssert.Contains(hcl, "base = \"mcr.microsoft.com/dotnet/aspnet:10.0\"");
-        StringAssert.Contains(hcl, "base = \"\"");
-    }
-
-    [TestMethod]
     public async Task GenerateAsync_ShouldEmitBuildContextInTarget()
     {
         // Act
@@ -481,6 +431,56 @@ public sealed class DockerHclGeneratorTests : TestBase
         var hcl = result.ToString();
         StringAssert.Contains(hcl, "tags = [\"repo/app:1.0.0\",\"repo/app:latest\"]");
         StringAssert.Contains(hcl, "tags = []");
+    }
+
+    [TestMethod]
+    public async Task GenerateAsync_ShouldEmitTargetContextThroughMatrixItem()
+    {
+        // Arrange
+        _buildConfig.Targets["src/dotnet-krp/dotnet-krp.csproj"][0].Type = "docker";
+        _buildConfig.Targets["src/dotnet-krp/dotnet-krp.csproj"][0].With = new Dictionary<string, object>
+        {
+            ["contexts"] = new Dictionary<object, object>
+            {
+                ["base"] = "docker-image://mcr.microsoft.com/dotnet/aspnet:10.0",
+            },
+        };
+        _chartConfig.Dependencies[0].Alias = "docker";
+        _chartConfig.Dependencies[0].Name = "dotnet-docker";
+
+        // Act
+        var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
+
+        // Assert
+        var hcl = result.ToString();
+        StringAssert.Contains(hcl, "        contexts = {");
+        StringAssert.Contains(hcl, "          base = \"docker-image://mcr.microsoft.com/dotnet/aspnet:10.0\"");
+        StringAssert.Contains(hcl, "    base = \"${item.contexts.base}\"");
+    }
+
+    [TestMethod]
+    public async Task GenerateAsync_ShouldEmitTypeContextDirectlyInTarget()
+    {
+        // Arrange
+        _buildConfig.Types = new Dictionary<string, TypeMatrixDefinition>
+        {
+            ["publish"] = new()
+            {
+                Contexts = new Dictionary<string, string>
+                {
+                    ["git"] = ".git",
+                },
+            },
+        };
+
+        // Act
+        var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
+
+        // Assert
+        var hcl = result.ToString();
+        StringAssert.Contains(hcl, "    git = \".git\"");
+        Assert.IsFalse(hcl.Contains("        contexts = {", StringComparison.Ordinal));
+        Assert.IsFalse(hcl.Contains("item.contexts.git", StringComparison.Ordinal));
     }
 
     [TestMethod]

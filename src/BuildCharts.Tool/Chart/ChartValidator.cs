@@ -10,6 +10,11 @@ namespace BuildCharts.Tool.Chart;
 
 public static class ChartValidator
 {
+    private static readonly HashSet<string> _reservedContextNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "build",
+    };
+
     public static Task ValidateConfigAsync(BuildConfig buildConfig, ChartConfig chartConfig)
     {
         var totalBuildTargets = buildConfig.Targets.SelectMany(x => x.Value).Count(x => x.Type == "build");
@@ -45,6 +50,22 @@ public static class ChartValidator
             }
         }
 
+        foreach (var (type, typeDefinition) in buildConfig.Types)
+        {
+            ValidateContextEntries($"types.{type}.contexts", typeDefinition.Contexts);
+        }
+
+        foreach (var (target, definitions) in buildConfig.Targets)
+        {
+            foreach (var definition in definitions)
+            {
+                if (definition.With.TryGetValue("contexts", out var rawContexts))
+                {
+                    ValidateTargetContexts($"targets.{target}.with.contexts", rawContexts);
+                }
+            }
+        }
+
         return Task.CompletedTask;
     }
 
@@ -68,7 +89,7 @@ public static class ChartValidator
             sb.AppendLine($"  - {mismatch}");
         }
         sb.Append("Run `buildcharts update` to refresh the lock file.");
-     
+
         throw new InvalidOperationException(sb.ToString());
     }
 
@@ -143,5 +164,64 @@ public static class ChartValidator
         return string.IsNullOrWhiteSpace(repository)
             ? string.Empty
             : repository.Trim().TrimEnd('/');
+    }
+
+    private static void ValidateTargetContexts(string location, object rawContexts)
+    {
+        if (rawContexts is Dictionary<object, object> objectContexts)
+        {
+            ValidateContextEntries(location, objectContexts.ToDictionary(k => k.Key?.ToString() ?? string.Empty, v => Convert.ToString(v.Value) ?? string.Empty));
+            return;
+        }
+
+        if (rawContexts is Dictionary<string, object> stringObjectContexts)
+        {
+            ValidateContextEntries(location, stringObjectContexts.ToDictionary(k => k.Key, v => Convert.ToString(v.Value) ?? string.Empty));
+            return;
+        }
+
+        if (rawContexts is Dictionary<string, string> stringContexts)
+        {
+            ValidateContextEntries(location, stringContexts);
+            return;
+        }
+
+        throw new InvalidOperationException($"Invalid build.yml - {location} must be a mapping.");
+    }
+
+    private static void ValidateContextEntries(string location, IReadOnlyDictionary<string, string> contexts)
+    {
+        foreach (var (key, value) in contexts)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                throw new InvalidOperationException($"Invalid build.yml - {location} contains an empty context name.");
+            }
+
+            if (_reservedContextNames.Contains(key))
+            {
+                throw new InvalidOperationException($"Invalid build.yml - {location}.{key} is reserved.");
+            }
+
+            if (!IsValidHclIdentifier(key))
+            {
+                throw new InvalidOperationException($"Invalid build.yml - {location}.{key} must be a valid HCL identifier.");
+            }
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new InvalidOperationException($"Invalid build.yml - {location}.{key} must not be empty.");
+            }
+        }
+    }
+
+    private static bool IsValidHclIdentifier(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !(char.IsLetter(value[0]) || value[0] == '_'))
+        {
+            return false;
+        }
+
+        return value.All(c => char.IsLetterOrDigit(c) || c == '_');
     }
 }

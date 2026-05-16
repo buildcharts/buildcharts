@@ -96,16 +96,29 @@
         },
         "with": {
           "type": "object",
-          "additionalProperties": true
+          "additionalProperties": true,
+          "properties": {
+            "contexts": { "$ref": "#/$defs/contextMap" }
+          }
         }
       },
       "required": ["type"]
+    },
+    "contextMap": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": { "type": "string", "minLength": 1 }
     },
     "typeMatrixDefinition": {
       "type": "object",
       "additionalProperties": false,
       "unevaluatedProperties": false,
       "properties": {
+        "contexts": { "$ref": "#/$defs/contextMap" },
         "matrix": {
           "type": "object",
           "additionalProperties": {

@@ -3,7 +3,7 @@
   "isRoot": true,
   "tools": {
     "dotnet-buildcharts": {
-      "version": "0.0.3-beta.226",
+      "version": "1.0.0-rc1-beta.243",
       "commands": [
         "buildcharts"
       ],

@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/eddietisma/buildcharts/main/schemas/v1beta.json
-
+# yaml-language-server: $schema=./schemas/v1beta.json
 version: v1beta
 
 variables:
@@ -10,20 +9,25 @@ targets:
   buildcharts.sln:
     type: build
     with:
-      base: mcr.microsoft.com/dotnet/sdk:10.0
+      contexts:
+        base: docker-image://mcr.microsoft.com/dotnet/sdk:10.0
 
   src/BuildCharts.Tool/BuildCharts.Tool.csproj:
     - type: publish
     - type: nuget
     - type: docker
       with:
-        base: mcr.microsoft.com/dotnet/runtime:10.0
+        contexts:
+          base: docker-image://mcr.microsoft.com/dotnet/runtime:10.0
         tags: ["docker.io/buildcharts/buildcharts:${VERSION}-${COMMIT}"]
 
   tests/BuildCharts.Tool/BuildCharts.Tests.csproj:
     type: test
 
 types:
+  nuget:
+    contexts:
+      git: .git
   publish:
     matrix:
       runtime: ["win-x64", "win-arm64"]

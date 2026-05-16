@@ -8,7 +8,8 @@ targets:
   src/dotnet-nuget.csproj:
     - type: build
       with:
-        base: mcr.microsoft.com/dotnet/sdk:10.0
+        contexts:
+          base: docker-image://mcr.microsoft.com/dotnet/sdk:10.0
     - type: nuget
       with:
         args:

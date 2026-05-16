@@ -24,5 +24,6 @@ public class TargetDefinition
 
 public class TypeMatrixDefinition
 {
+    public Dictionary<string, string> Contexts { get; set; } = [];
     public Dictionary<string, List<string>> Matrix { get; set; } = [];
 }
