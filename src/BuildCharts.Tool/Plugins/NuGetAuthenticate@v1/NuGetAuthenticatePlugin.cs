@@ -1,5 +1,6 @@
 ﻿using BuildCharts.Tool.Configuration.Models;
 using BuildCharts.Tool.Plugins.NuGetAuthenticate_v1.Helpers;
+using BuildCharts.Tool.Plugins.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -113,7 +114,7 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
 
     public Task OnAfterGenerateAsync(BuildConfig buildConfig, ChartConfig cartConfig, StringBuilder hclStringBuilder, CancellationToken ct)
     {
-        BakeHclPatchHelper.Execute(hclStringBuilder);
+        BakeSecretHelper.AddSecrets(hclStringBuilder, "type=file,id=ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS,src=.buildcharts/secrets/ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS", "type=file,id=ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN,src=.buildcharts/secrets/ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN");
         return Task.CompletedTask;
     }
     

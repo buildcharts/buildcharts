@@ -1,4 +1,5 @@
-﻿using BuildCharts.Tool.Plugins.NuGetAuthenticate_v1;
+﻿using BuildCharts.Tool.Plugins.NpmAuthenticate_v1;
+using BuildCharts.Tool.Plugins.NuGetAuthenticate_v1;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +10,7 @@ public static class PluginManager
 {
     private static readonly Dictionary<string, Type> _builtIns = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["NpmAuthenticate@v1"] = typeof(NpmAuthenticatePlugin),
         ["NuGetAuthenticate@v1"] = typeof(NuGetAuthenticatePlugin),
         ["TestcontainersDinD@v1"] = typeof(TestcontainersDinDPlugin),
     };
