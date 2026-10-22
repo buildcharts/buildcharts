@@ -26,6 +26,12 @@ When an Azure DevOps Services npm feed has no supplied credentials, the plugin d
 .buildcharts/plugins/NpmAuthenticate@v1/vsts-npm-auth/0.43.0/package/bin/
 ```
 
+Set `NPM_AUTHENTICATE_HELPER_VERSION` to download another exact version. The download and installation directory use that version, and its SHA-512 is verified against the official npm registry metadata. Unset or empty uses the pinned default `0.43.0`.
+
+```powershell
+$env:NPM_AUTHENTICATE_HELPER_VERSION = '0.43.0'
+```
+
 It runs `vsts-npm-auth.exe` directly. Neither npm nor a global helper installation is required for authentication. The helper may prompt for Windows sign-in and requests its standard read-write package token.
 
 The plugin derives the feed URLs from the project's selected `.npmrc` on each generation. It supplies only Azure feeds lacking credentials to the helper, using temporary `-Config` and `-TargetConfig` files under `.buildcharts`. The project and user-level `.npmrc` files are not modified or synchronized. Temporary helper files are removed after the call, and the resulting credentials go into the existing `npmrc` BuildKit secret.
@@ -38,6 +44,7 @@ As with the NuGet helper, a fresh `buildcharts generate` removes `.buildcharts`,
 
 | Environment variable | Purpose |
 | --- | --- |
+| `NPM_AUTHENTICATE_HELPER_VERSION` | Exact helper version to download. Defaults to `0.43.0`. |
 | `NPM_AUTHENTICATE_WORKING_FILE` | The working `.npmrc` file. Defaults to `.npmrc` in the current directory. |
 | `NPM_AUTHENTICATE_CUSTOM_ENDPOINTS` | Comma-separated npm service connection IDs. Equivalent to the task's `customEndpoint` selection. |
 | `ENDPOINT_URL_<ID>` | Registry URL for a selected service connection. |
