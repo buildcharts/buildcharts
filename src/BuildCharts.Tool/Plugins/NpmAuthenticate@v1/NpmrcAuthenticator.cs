@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace BuildCharts.Tool.Plugins.NpmAuthenticate_v1;
 
-public class NpmrcAuthenticator(HttpClient http, Func<string, string> getEnvironmentVariable)
+public class NpmrcAuthenticator(HttpClient http, Func<string, string> getEnvironmentVariable, Func<string, CancellationToken, Task<string>> acquireLocalCredentials = null)
 {
     public async Task<string> AuthenticateAsync(string content, CancellationToken ct)
     {
@@ -97,6 +97,7 @@ public class NpmrcAuthenticator(HttpClient http, Func<string, string> getEnviron
             endpoints.Add((endpoint, credentials));
         }
 
+        var localRegistries = new HashSet<Uri>();
         foreach (var registry in registries.Values.DistinctBy(x => Origin(x) + Nerf(x)))
         {
             var credentials = endpoints.FirstOrDefault(x => Origin(x.Registry) == Origin(registry) && Nerf(x.Registry) == Nerf(registry)).Credentials;
@@ -106,6 +107,10 @@ public class NpmrcAuthenticator(HttpClient http, Func<string, string> getEnviron
             }
             if (credentials == null)
             {
+                if ((registry.Host.Equals("pkgs.dev.azure.com", StringComparison.OrdinalIgnoreCase) || registry.Host.EndsWith(".pkgs.visualstudio.com", StringComparison.OrdinalIgnoreCase)) && !HasCredentials(lines, registry))
+                {
+                    localRegistries.Add(registry);
+                }
                 continue;
             }
             var prefix = Nerf(registry) + ":";
@@ -113,7 +118,46 @@ public class NpmrcAuthenticator(HttpClient http, Func<string, string> getEnviron
                 && Regex.IsMatch(line.TrimStart()[prefix.Length..], @"^(?:_authToken|_auth|_password|username|email|always-auth)\s*=", RegexOptions.IgnoreCase));
             lines.Add(credentials);
         }
+        if (localRegistries.Count > 0)
+        {
+            if (string.Equals(getEnvironmentVariable("TF_BUILD"), "true", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(getEnvironmentVariable("GITHUB_ACTIONS"), "true", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(getEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase)
+                || getEnvironmentVariable("CI") == "1")
+            {
+                throw new InvalidOperationException("Azure Artifacts npm credentials are missing in CI. Supply the job token and collection settings, an authorized npm service connection, or an authenticated working file.");
+            }
+            if (acquireLocalCredentials == null)
+            {
+                throw new InvalidOperationException("Azure Artifacts npm credentials are missing and no local authentication helper is configured.");
+            }
+            var registryConfiguration = string.Join('\n', registries.Where(x => localRegistries.Contains(x.Value)).Select(x => $"{x.Key}={x.Value.AbsoluteUri}")) + "\n";
+            var localCredentials = await acquireLocalCredentials(registryConfiguration, ct);
+            var localLines = localCredentials.Replace("\r\n", "\n").Split('\n');
+            if (localRegistries.Any(registry => !HasCredentials(localLines, registry)))
+            {
+                throw new InvalidOperationException("The local npm authentication helper did not return credentials for every requested Azure Artifacts feed.");
+            }
+            lines.AddRange(localLines);
+        }
         return string.Join('\n', lines).TrimEnd('\n') + "\n";
+    }
+
+    private static bool HasCredentials(IEnumerable<string> lines, Uri registry)
+    {
+        var prefix = Nerf(registry) + ":";
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in lines.Select(x => x.Trim()).Where(x => x.StartsWith(prefix, StringComparison.Ordinal)))
+        {
+            var separator = line.IndexOf('=', prefix.Length);
+            if (separator >= 0)
+            {
+                values[line[prefix.Length..separator].Trim()] = line[(separator + 1)..].Trim().Trim('"', '\'');
+            }
+        }
+        return !string.IsNullOrWhiteSpace(values.GetValueOrDefault("_authToken"))
+            || !string.IsNullOrWhiteSpace(values.GetValueOrDefault("_auth"))
+            || (!string.IsNullOrWhiteSpace(values.GetValueOrDefault("username")) && !string.IsNullOrWhiteSpace(values.GetValueOrDefault("_password")));
     }
 
     private async Task<HashSet<string>> GetPackagingOriginsAsync(string token, CancellationToken ct)

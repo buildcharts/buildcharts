@@ -23,7 +23,7 @@ public sealed class NpmAuthenticatePluginTests : TestBase
         _directory = Path.Combine(Path.GetTempPath(), "buildcharts-npm-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_directory);
         Directory.SetCurrentDirectory(_directory);
-        _environment = new[] { "NPM_AUTHENTICATE_WORKING_FILE", "SYSTEM_ACCESSTOKEN", "SYSTEM_COLLECTIONURI", "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI", "SYSTEM_SERVERTYPE", "NPM_AUTHENTICATE_CUSTOM_ENDPOINTS", "ENDPOINT_AUTH_SYSTEMVSSCONNECTION" }
+        _environment = new[] { "NPM_AUTHENTICATE_WORKING_FILE", "SYSTEM_ACCESSTOKEN", "SYSTEM_COLLECTIONURI", "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI", "SYSTEM_SERVERTYPE", "NPM_AUTHENTICATE_CUSTOM_ENDPOINTS", "ENDPOINT_AUTH_SYSTEMVSSCONNECTION", "TF_BUILD", "GITHUB_ACTIONS", "CI" }
             .ToDictionary(name => name, Environment.GetEnvironmentVariable);
         foreach (var name in _environment.Keys)
         {
@@ -85,6 +85,7 @@ public sealed class NpmAuthenticatePluginTests : TestBase
         var result = await File.ReadAllTextAsync(".buildcharts/secrets/npmrc");
 
         CollectionAssert.AreEqual(original, await File.ReadAllBytesAsync(".npmrc"));
+        Assert.IsFalse(Directory.Exists(".buildcharts/plugins"));
         StringAssert.Contains(result, "//server.example/collection/feed/:_authToken=job-token");
     }
 

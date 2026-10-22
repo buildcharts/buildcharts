@@ -1,5 +1,6 @@
 using BuildCharts.Tool.Configuration.Models;
 using BuildCharts.Tool.Plugins.Helpers;
+using BuildCharts.Tool.Plugins.NpmAuthenticate_v1.Helpers;
 using System;
 using System.IO;
 using System.Net.Http;
@@ -26,7 +27,8 @@ public class NpmAuthenticatePlugin : IBuildChartsPlugin
         Directory.CreateDirectory(Path.GetDirectoryName(secretPath));
         File.Delete(secretPath);
         using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
-        var authenticator = new NpmrcAuthenticator(http, Environment.GetEnvironmentVariable);
+        var helperFolder = Path.Combine(".buildcharts", "plugins", Name, "vsts-npm-auth");
+        var authenticator = new NpmrcAuthenticator(http, Environment.GetEnvironmentVariable, (registryConfiguration, cancellationToken) => VstsNpmAuthHelper.FetchCredentialsAsync(http, helperFolder, registryConfiguration, cancellationToken));
         var content = await authenticator.AuthenticateAsync(await File.ReadAllTextAsync(file.FullName, ct), ct);
         var options = new FileStreamOptions
         {

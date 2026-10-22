@@ -13,6 +13,8 @@ public sealed class NpmrcAuthenticatorTests : TestBase
 {
     private Dictionary<string, string> _environment;
     private HttpClient _http;
+    private List<string> _localRequests;
+    private string _localCredentials;
     private Mock<HttpMessageHandler> HandlerMock => Fixture.Freeze<Mock<HttpMessageHandler>>();
     private NpmrcAuthenticator Sut => Fixture.Freeze<NpmrcAuthenticator>();
 
@@ -33,12 +35,37 @@ public sealed class NpmrcAuthenticatorTests : TestBase
                     : """{"locationServiceData":{"accessMappings":[{"accessPoint":"https://pkgs.dev.azure.com/example/"},{"accessPoint":"https://example.pkgs.visualstudio.com/"}]}}"""),
             });
         _http = new HttpClient(HandlerMock.Object);
+        _localRequests = [];
+        _localCredentials = "//pkgs.dev.azure.com/example/_packaging/feed/npm/registry/:_authToken=local-token\n//example.pkgs.visualstudio.com/_packaging/feed/npm/registry/:_authToken=legacy-token\n";
         Fixture.Register(() => _http);
+        Fixture.Register<Func<string, CancellationToken, Task<string>>>(() => (configuration, _) =>
+        {
+            _localRequests.Add(configuration);
+            return Task.FromResult(_localCredentials);
+        });
         Fixture.Register<Func<string, string>>(() => name => _environment.GetValueOrDefault(name));
     }
 
     [TestCleanup]
     public void TestCleanup() => _http.Dispose();
+
+    [TestMethod]
+    public async Task AuthenticateAsync_ShouldAcquireLocalCredentialsForUnconfiguredAzureFeeds()
+    {
+        _environment.Clear();
+        var source = "registry=https://registry.npmjs.org/\n@team:registry=https://pkgs.dev.azure.com/example/_packaging/feed/npm/registry/\n@legacy:registry=https://example.pkgs.visualstudio.com/_packaging/feed/npm/registry/\n//registry.other.example/:_authToken=keep-private\n";
+
+        var result = await Sut.AuthenticateAsync(source, default);
+
+        Assert.AreEqual(1, _localRequests.Count);
+        StringAssert.Contains(_localRequests[0], "@team:registry=https://pkgs.dev.azure.com/example/_packaging/feed/npm/registry/");
+        StringAssert.Contains(_localRequests[0], "@legacy:registry=https://example.pkgs.visualstudio.com/_packaging/feed/npm/registry/");
+        Assert.IsFalse(_localRequests[0].Contains("keep-private", StringComparison.Ordinal));
+        Assert.IsFalse(_localRequests[0].Contains("registry.npmjs.org", StringComparison.Ordinal));
+        StringAssert.Contains(result, "_authToken=local-token");
+        StringAssert.Contains(result, "_authToken=legacy-token");
+        StringAssert.Contains(result, "_authToken=keep-private");
+    }
 
     [TestMethod]
     public async Task AuthenticateAsync_ShouldAuthenticateDiscoveredInternalRegistries()
@@ -151,6 +178,33 @@ public sealed class NpmrcAuthenticatorTests : TestBase
     }
 
     [TestMethod]
+    public async Task AuthenticateAsync_ShouldRejectIncompleteLocalCredentials()
+    {
+        _environment.Clear();
+        _localCredentials = "//other.example/:_authToken=wrong-feed\n";
+
+        var result = await Assert.ThrowsAsync<InvalidOperationException>(() => Sut.AuthenticateAsync("registry=https://pkgs.dev.azure.com/example/_packaging/feed/npm/registry/", default));
+
+        StringAssert.Contains(result.Message, "every requested Azure Artifacts feed");
+    }
+
+    [TestMethod]
+    [DataRow("TF_BUILD", "True")]
+    [DataRow("GITHUB_ACTIONS", "true")]
+    [DataRow("CI", "true")]
+    [DataRow("CI", "1")]
+    public async Task AuthenticateAsync_ShouldRejectMissingAzureCredentialsInCi(string variable, string value)
+    {
+        _environment.Clear();
+        _environment[variable] = value;
+
+        var result = await Assert.ThrowsAsync<InvalidOperationException>(() => Sut.AuthenticateAsync("registry=https://pkgs.dev.azure.com/example/_packaging/feed/npm/registry/", default));
+
+        StringAssert.Contains(result.Message, "credentials are missing in CI");
+        Assert.AreEqual(0, _localRequests.Count);
+    }
+
+    [TestMethod]
     public async Task AuthenticateAsync_ShouldRejectMixedSchemesForTheSameHost()
     {
         var result = await Assert.ThrowsAsync<InvalidOperationException>(() => Sut.AuthenticateAsync("registry=https://registry.example/\n@other:registry=http://registry.example/", default));
@@ -168,6 +222,21 @@ public sealed class NpmrcAuthenticatorTests : TestBase
         var result = await Assert.ThrowsAsync<InvalidOperationException>(() => Sut.AuthenticateAsync("registry=https://registry.example/", default));
 
         StringAssert.Contains(result.Message, "Use Token or UsernamePassword");
+    }
+
+    [TestMethod]
+    [DataRow(":_authToken=existing-token\n")]
+    [DataRow(":_auth=existing-basic\n")]
+    [DataRow(":username=existing-user\n//pkgs.dev.azure.com/example/_packaging/feed/npm/registry/:_password=existing-password\n")]
+    public async Task AuthenticateAsync_ShouldSkipLocalHelperForConfiguredAzureCredentials(string credentials)
+    {
+        _environment.Clear();
+        var source = "registry=https://pkgs.dev.azure.com/example/_packaging/feed/npm/registry/\n//pkgs.dev.azure.com/example/_packaging/feed/npm/registry/" + credentials;
+
+        var result = await Sut.AuthenticateAsync(source, default);
+
+        Assert.AreEqual(0, _localRequests.Count);
+        Assert.AreEqual(source, result);
     }
 
     [TestMethod]
