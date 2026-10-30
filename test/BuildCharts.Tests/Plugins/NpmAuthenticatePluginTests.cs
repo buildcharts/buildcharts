@@ -22,7 +22,7 @@ public sealed class NpmAuthenticatePluginTests : TestBase
         _directory = Path.Combine(Path.GetTempPath(), "buildcharts-npm-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_directory);
         Directory.SetCurrentDirectory(_directory);
-        _environment = new[] { "NPM_AUTHENTICATE_WORKING_FILE", "SYSTEM_ACCESSTOKEN", "SYSTEM_COLLECTIONURI", "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI", "SYSTEM_SERVERTYPE", "NPM_AUTHENTICATE_CUSTOM_ENDPOINTS", "ENDPOINT_AUTH_SYSTEMVSSCONNECTION", "TF_BUILD", "GITHUB_ACTIONS", "CI" }
+        _environment = new[] { "NPM_AUTHENTICATE_WORKING_FILE", "SYSTEM_ACCESSTOKEN", "ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN", "SYSTEM_COLLECTIONURI", "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI", "SYSTEM_SERVERTYPE", "NPM_AUTHENTICATE_CUSTOM_ENDPOINTS", "ENDPOINT_AUTH_SYSTEMVSSCONNECTION", "TF_BUILD", "GITHUB_ACTIONS", "CI" }
             .ToDictionary(name => name, Environment.GetEnvironmentVariable);
         foreach (var name in _environment.Keys)
         {

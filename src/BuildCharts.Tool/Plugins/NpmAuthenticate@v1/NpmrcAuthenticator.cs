@@ -52,6 +52,10 @@ public class NpmrcAuthenticator(HttpClient http, Func<string, string> getEnviron
         var token = getEnvironmentVariable("SYSTEM_ACCESSTOKEN");
         if (string.IsNullOrWhiteSpace(token))
         {
+            token = getEnvironmentVariable("ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN");
+        }
+        if (string.IsNullOrWhiteSpace(token))
+        {
             var systemAuth = getEnvironmentVariable("ENDPOINT_AUTH_SYSTEMVSSCONNECTION");
             if (!string.IsNullOrWhiteSpace(systemAuth))
             {

@@ -240,18 +240,20 @@ public sealed class NpmrcAuthenticatorTests : TestBase
     }
 
     [TestMethod]
-    public async Task AuthenticateAsync_ShouldUseExternalTokensWithoutSendingThemToTheProbe()
+    [DataRow(null, "provider-token")]
+    [DataRow("", "provider-token")]
+    [DataRow("job-token", "job-token")]
+    public async Task AuthenticateAsync_ShouldUseCredentialProviderTokenAsFallback(string jobToken, string expectedToken)
     {
-        _environment["NPM_AUTHENTICATE_CUSTOM_ENDPOINTS"] = "external";
-        _environment["ENDPOINT_URL_EXTERNAL"] = "https://registry.example/";
-        _environment["ENDPOINT_AUTH_EXTERNAL"] = """{"scheme":"Token","parameters":{"apitoken":"external-token"}}""";
+        _environment["SYSTEM_ACCESSTOKEN"] = jobToken;
+        _environment["ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN"] = "provider-token";
+        var source = "registry=https://pkgs.dev.azure.com/example/_packaging/feed/npm/registry/\n";
 
-        var result = await Sut.AuthenticateAsync("registry=https://registry.example/", default);
+        var result = await Sut.AuthenticateAsync(source, default);
 
-        StringAssert.Contains(result, "//registry.example/:_authToken=external-token");
-        HandlerMock.Protected().Verify("SendAsync", Times.Once(), ItExpr.Is<HttpRequestMessage>(x => x.RequestUri.Host == "registry.example" && x.Headers.Authorization == null && x.Headers.Contains("X-TFS-FedAuthRedirect")), ItExpr.IsAny<CancellationToken>());
+        StringAssert.Contains(result, $":_authToken={expectedToken}");
+        Assert.AreEqual(0, _localRequests.Count);
     }
-
     [TestMethod]
     public async Task AuthenticateAsync_ShouldUseServiceConnectionsBeforeJobCredentials()
     {
@@ -264,6 +266,19 @@ public sealed class NpmrcAuthenticatorTests : TestBase
         StringAssert.Contains(result, ":username=service");
         Assert.IsFalse(result.Contains("job-token", StringComparison.Ordinal));
         Assert.AreEqual(1, result.Split(":_password=").Length - 1);
+    }
+
+    [TestMethod]
+    public async Task AuthenticateAsync_ShouldUseExternalTokensWithoutSendingThemToTheProbe()
+    {
+        _environment["NPM_AUTHENTICATE_CUSTOM_ENDPOINTS"] = "external";
+        _environment["ENDPOINT_URL_EXTERNAL"] = "https://registry.example/";
+        _environment["ENDPOINT_AUTH_EXTERNAL"] = """{"scheme":"Token","parameters":{"apitoken":"external-token"}}""";
+
+        var result = await Sut.AuthenticateAsync("registry=https://registry.example/", default);
+
+        StringAssert.Contains(result, "//registry.example/:_authToken=external-token");
+        HandlerMock.Protected().Verify("SendAsync", Times.Once(), ItExpr.Is<HttpRequestMessage>(x => x.RequestUri.Host == "registry.example" && x.Headers.Authorization == null && x.Headers.Contains("X-TFS-FedAuthRedirect")), ItExpr.IsAny<CancellationToken>());
     }
 
     [TestMethod]

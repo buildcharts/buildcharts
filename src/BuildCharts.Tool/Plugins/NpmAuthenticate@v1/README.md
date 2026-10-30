@@ -40,6 +40,7 @@ A fresh `buildcharts generate` removes `.buildcharts`, so the helper is download
 | `ENDPOINT_URL_<ID>` | Registry URL for a selected service connection. |
 | `ENDPOINT_AUTH_<ID>` | Azure agent authorization JSON with `scheme` and `parameters`. Supports `Token` with `apitoken`, or `UsernamePassword` with `username` and `password`. |
 | `SYSTEM_ACCESSTOKEN` | Job OAuth token for internal registries and packaging discovery. |
+| `ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN` | Fallback job token when `SYSTEM_ACCESSTOKEN` is empty. Shared with NuGet authentication. |
 | `ENDPOINT_AUTH_SYSTEMVSSCONNECTION` | The agent's OAuth authorization JSON, used when `SYSTEM_ACCESSTOKEN` is absent. |
 | `SYSTEM_TEAMFOUNDATIONCOLLECTIONURI` | Azure DevOps collection URL. `SYSTEM_COLLECTIONURI` is also accepted. |
 | `SYSTEM_SERVERTYPE` | `Hosted` enables packaging service discovery; server installations use the collection origin. |
