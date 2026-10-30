@@ -8,7 +8,6 @@ using System.Text;
 namespace BuildCharts.Tests.Plugins;
 
 [TestClass]
-[DoNotParallelize]
 public sealed class NpmAuthenticatePluginTests : TestBase
 {
     private string _directory;

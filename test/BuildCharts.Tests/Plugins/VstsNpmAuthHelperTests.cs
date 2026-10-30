@@ -12,7 +12,6 @@ using System.Text.Json;
 namespace BuildCharts.Tests.Plugins;
 
 [TestClass]
-[DoNotParallelize]
 public sealed class VstsNpmAuthHelperTests : TestBase
 {
     private string _directory;
