@@ -14,7 +14,7 @@ namespace BuildCharts.Tool.Plugins.NuGetAuthenticate_v1.Helpers;
 
 public static class MicrosoftCredentialProviderHelper
 {
-    public static async Task EnsureInstalledAsync(string folder, CancellationToken ct)
+    public static async Task EnsureInstalledAsync(string folder, CancellationToken ct, string version = null)
     {
         if (folder == null)
         {
@@ -34,7 +34,8 @@ public static class MicrosoftCredentialProviderHelper
         var assetName = isWindows
             ? "Microsoft.Net8.NuGet.CredentialProvider.zip"
             : "Microsoft.Net8.NuGet.CredentialProvider.tar.gz";
-        var downloadUrl = $"https://github.com/microsoft/artifacts-credprovider/releases/latest/download/{assetName}";
+        var releasePath = string.IsNullOrWhiteSpace(version) ? "latest/download" : $"download/v{version.TrimStart('v')}";
+        var downloadUrl = $"https://github.com/microsoft/artifacts-credprovider/releases/{releasePath}/{assetName}";
 
         using var http = new HttpClient();
         var bytes = await http.GetByteArrayAsync(downloadUrl, ct);

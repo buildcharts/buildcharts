@@ -18,33 +18,23 @@ The plugin follows the credential selection and formatting rules of Azure DevOps
 
 The BuildCharts lifecycle differs from the Azure task. The plugin leaves the source file unchanged and writes `.buildcharts/secrets/npmrc`, then adds it to the generated Bake secrets as `npmrc`. There is no source-file restoration step. The generated secret must remain available until Bake finishes; the next generation removes it. Do not publish `.buildcharts/secrets` as an artifact.
 
-## Local Windows sign-in
+## Local sign-in
 
-When an Azure DevOps Services npm feed has no supplied credentials, the plugin downloads Microsoft's `vsts-npm-auth` **0.43.0** directly from `https://registry.npmjs.org/vsts-npm-auth/-/vsts-npm-auth-0.43.0.tgz`. It extracts the complete package under:
+When an Azure DevOps Services npm feed has no supplied credentials, the plugin uses the same cross-platform Microsoft Azure Artifacts Credential Provider as NuGet authentication. It downloads the provider under `.buildcharts/plugins/NpmAuthenticate@v1/microsoft-artifacts-credprovider` and runs it through `dotnet` on Windows, Linux and macOS.
 
-```text
-.buildcharts/plugins/NpmAuthenticate@v1/vsts-npm-auth/0.43.0/package/bin/
-```
+The provider receives each npm registry URL and may prompt for browser or device-code sign-in. Its returned password is Base64-encoded into `username`, `_password` and `email` entries for both the feed's `/npm/registry/` and `/npm/` paths. The authenticated configuration is written only to the `npmrc` BuildKit secret. Project and user-level `.npmrc` files remain unchanged.
 
-Set `NPM_AUTHENTICATE_HELPER_VERSION` to download another exact version. The download and installation directory use that version. Unset or empty uses the default `0.43.0`.
+Set `NPM_AUTHENTICATE_HELPER_VERSION` to an exact Microsoft Credential Provider release version, for example `1.4.1`. Unset or empty selects the latest release. Different versions use separate installation directories.
 
-```powershell
-$env:NPM_AUTHENTICATE_HELPER_VERSION = '0.43.0'
-```
+Existing job tokens, service connections and working-file credentials take precedence. `TF_BUILD=true`, `GITHUB_ACTIONS=true`, and `CI=true` or `CI=1` disable local sign-in; missing Azure feed credentials fail generation in CI. Azure DevOps Server requires supplied credentials.
 
-It runs `vsts-npm-auth.exe` directly. Neither npm nor a global helper installation is required for authentication. The helper may prompt for Windows sign-in and requests its standard read-write package token.
-
-The plugin derives the feed URLs from the project's selected `.npmrc` on each generation. It supplies only Azure feeds lacking credentials to the helper, using temporary `-Config` and `-TargetConfig` files under `.buildcharts`. The project and user-level `.npmrc` files are not modified or synchronized. Temporary helper files are removed after the call, and the resulting credentials go into the existing `npmrc` BuildKit secret.
-
-Existing job tokens, service connections and credentials in the working file take precedence. `TF_BUILD=true`, `GITHUB_ACTIONS=true`, and `CI=true` or `CI=1` disable local sign-in; missing Azure feed credentials fail generation in CI. The helper supports Windows and Azure DevOps Services only. Other platforms and Azure DevOps Server continue using supplied credentials.
-
-As with the NuGet helper, a fresh `buildcharts generate` removes `.buildcharts`, so the helper is downloaded again after that cleanup. Within an existing generation directory, the selected version is reused.
+A fresh `buildcharts generate` removes `.buildcharts`, so the helper is downloaded again after that cleanup.
 
 ## Configuration
 
 | Environment variable | Purpose |
 | --- | --- |
-| `NPM_AUTHENTICATE_HELPER_VERSION` | Exact helper version to download. Defaults to `0.43.0`. |
+| `NPM_AUTHENTICATE_HELPER_VERSION` | Exact Microsoft Credential Provider release version. Defaults to latest. |
 | `NPM_AUTHENTICATE_WORKING_FILE` | The working `.npmrc` file. Defaults to `.npmrc` in the current directory. |
 | `NPM_AUTHENTICATE_CUSTOM_ENDPOINTS` | Comma-separated npm service connection IDs. Equivalent to the task's `customEndpoint` selection. |
 | `ENDPOINT_URL_<ID>` | Registry URL for a selected service connection. |
@@ -54,7 +44,7 @@ As with the NuGet helper, a fresh `buildcharts generate` removes `.buildcharts`,
 | `SYSTEM_TEAMFOUNDATIONCOLLECTIONURI` | Azure DevOps collection URL. `SYSTEM_COLLECTIONURI` is also accepted. |
 | `SYSTEM_SERVERTYPE` | `Hosted` enables packaging service discovery; server installations use the collection origin. |
 
-Endpoint environment names use uppercase IDs, with spaces and periods replaced by underscores. The caller must provide credentials for authorized service connections. A standalone CLI cannot declare Azure task inputs or request service-connection authorization; selecting an ID does not grant access or retrieve its secret from Azure DevOps. Outside Azure Pipelines, supply the same environment values or an already authenticated working file, or use the automatic Windows sign-in described above.
+Endpoint environment names use uppercase IDs, with spaces and periods replaced by underscores. The caller must provide credentials for authorized service connections. A standalone CLI cannot declare Azure task inputs or request service-connection authorization; selecting an ID does not grant access or retrieve its secret from Azure DevOps. Outside Azure Pipelines, supply the same environment values or an already authenticated working file, or use the automatic local sign-in described above.
 
 For internal feeds in Azure Pipelines:
 

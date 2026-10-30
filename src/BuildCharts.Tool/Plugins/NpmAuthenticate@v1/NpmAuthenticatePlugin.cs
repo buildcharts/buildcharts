@@ -33,8 +33,8 @@ public class NpmAuthenticatePlugin : IBuildChartsPlugin
         File.Delete(secretPath);
 
         using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
-        var helperFolder = Path.Combine(".buildcharts", "plugins", Name, "vsts-npm-auth");
-        var authenticator = new NpmrcAuthenticator(http, Environment.GetEnvironmentVariable, (registryConfiguration, cancellationToken) => VstsNpmAuthHelper.FetchCredentialsAsync(http, helperFolder, registryConfiguration, cancellationToken));
+        var helperFolder = Path.Combine(".buildcharts", "plugins", Name, "microsoft-artifacts-credprovider");
+        var authenticator = new NpmrcAuthenticator(http, Environment.GetEnvironmentVariable, (registryConfiguration, cancellationToken) => NpmCredentialProviderHelper.FetchCredentialsAsync(helperFolder, registryConfiguration, cancellationToken));
         var content = await authenticator.AuthenticateAsync(await File.ReadAllTextAsync(file.FullName, ct), ct);
 
         var options = new FileStreamOptions
