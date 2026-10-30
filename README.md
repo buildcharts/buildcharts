@@ -161,7 +161,6 @@ buildcharts
 
 ## Documentation
 
-- [NpmAuthenticate@v1](src/BuildCharts.Tool/Plugins/NpmAuthenticate@v1/README.md) - npm registry authentication for Docker builds
 - [docs/assessment.md](docs/assessment.md) – Assessment and rationale
 - [buildcharts/charts](https://github.com/buildcharts/charts/) – Collection of build charts
 - [buildcharts/docs](https://buildcharts.dev)  - Documentation

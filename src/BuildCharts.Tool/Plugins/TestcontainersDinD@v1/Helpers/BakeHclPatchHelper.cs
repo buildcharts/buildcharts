@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BuildCharts.Tool.Plugins.Helpers;
+using System;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -43,7 +44,7 @@ public static class BakeHclPatchHelper
         }
 
         // 3) Find matching '}'
-        var targetCloseBrace = FindMatchingBrace(text, targetOpenBrace);
+        var targetCloseBrace = BakeHclHelper.FindClosingDelimiter(text, targetOpenBrace, '{', '}');
         if (targetCloseBrace < 0)
         {
             throw new InvalidOperationException($"Malformed HCL: unmatched braces in {TARGET_MARKER}.");
@@ -70,7 +71,7 @@ public static class BakeHclPatchHelper
             throw new InvalidOperationException("Malformed HCL: args block missing '{'.");
         }
 
-        var argsCloseBrace = FindMatchingBrace(sb.ToString(), argsOpenBrace);
+        var argsCloseBrace = BakeHclHelper.FindClosingDelimiter(sb.ToString(), argsOpenBrace, '{', '}');
         if (argsCloseBrace < 0)
         {
             throw new InvalidOperationException("Malformed HCL: unmatched braces in args block.");
@@ -103,29 +104,5 @@ public static class BakeHclPatchHelper
 
         // 5) Insert new extra hosts before the closing brace
         sb.Insert(blockEnd, EXTRA_HOSTS_SNIPPET);
-    }
-
-    /// <summary>
-    /// Finds the index of the matching '}' for the '{' at openIdx; returns -1 if not found.
-    /// </summary>
-    private static int FindMatchingBrace(string s, int openIdx)
-    {
-        int depth = 0;
-        for (int i = openIdx; i < s.Length; i++)
-        {
-            if (s[i] == '{')
-            {
-                depth++;
-            }
-            else if (s[i] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return i;
-                }
-            }
-        }
-        return -1;
     }
 }
