@@ -19,12 +19,17 @@ public static class VstsNpmAuthHelper
 
     public static async Task<string> EnsureInstalledAsync(HttpClient http, string folder, CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(http);
+        ArgumentNullException.ThrowIfNull(folder);
+
         var version = Environment.GetEnvironmentVariable("NPM_AUTHENTICATE_HELPER_VERSION");
         version = string.IsNullOrWhiteSpace(version) ? Version : version.Trim();
+
         if (!Regex.IsMatch(version, @"\A[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?\z"))
         {
             throw new InvalidOperationException("NPM_AUTHENTICATE_HELPER_VERSION must be an exact package version, for example 0.43.0.");
         }
+
         var packageSha512 = PackageSha512;
         if (version != Version)
         {
@@ -34,33 +39,43 @@ public static class VstsNpmAuthHelper
             {
                 throw new InvalidOperationException("The selected vsts-npm-auth version has no SHA-512 integrity metadata.");
             }
+
             packageSha512 = integrity["sha512-".Length..];
         }
+
         var versionFolder = Path.Combine(folder, version);
         var executable = Path.Combine(versionFolder, "package", "bin", "vsts-npm-auth.exe");
         var installedMarker = Path.Combine(versionFolder, "installed.sha512");
+
         if (File.Exists(executable) && File.Exists(installedMarker) && await File.ReadAllTextAsync(installedMarker, ct) == packageSha512)
         {
             return executable;
         }
 
-        var packageName = $"vsts-npm-auth-{version}.tgz";
+        var assetName = $"vsts-npm-auth-{version}.tgz";
+        var downloadUrl = $"https://registry.npmjs.org/vsts-npm-auth/-/{assetName}";
+
         Console.WriteLine($"Downloading vsts-npm-auth {version}");
-        var bytes = await http.GetByteArrayAsync($"https://registry.npmjs.org/vsts-npm-auth/-/{packageName}", ct);
+        var bytes = await http.GetByteArrayAsync(downloadUrl, ct);
         if (!CryptographicOperations.FixedTimeEquals(SHA512.HashData(bytes), Convert.FromBase64String(packageSha512)))
         {
             throw new InvalidOperationException("The vsts-npm-auth download does not match the expected SHA-512 checksum.");
         }
 
         Directory.CreateDirectory(versionFolder);
-        await File.WriteAllBytesAsync(Path.Combine(versionFolder, packageName), bytes, ct);
-        await using var archive = new MemoryStream(bytes);
-        await using var gzip = new GZipStream(archive, CompressionMode.Decompress);
-        await TarFile.ExtractToDirectoryAsync(gzip, versionFolder, overwriteFiles: true, cancellationToken: ct);
+        var archivePath = Path.Combine(versionFolder, assetName);
+        await File.WriteAllBytesAsync(archivePath, bytes, ct);
+
+        await using var fs = File.OpenRead(archivePath);
+        await using var gz = new GZipStream(fs, CompressionMode.Decompress);
+        await TarFile.ExtractToDirectoryAsync(gz, versionFolder, overwriteFiles: true, cancellationToken: ct);
+
+        // Ensure the executable exists after extraction.
         if (!File.Exists(executable))
         {
             throw new FileNotFoundException("The downloaded package does not contain vsts-npm-auth.exe.", executable);
         }
+
         await File.WriteAllTextAsync(installedMarker, packageSha512, ct);
         return executable;
     }
@@ -77,16 +92,24 @@ public static class VstsNpmAuthHelper
         var targetFile = Path.GetFullPath(Path.Combine(folder, "credentials.npmrc"));
         await File.WriteAllTextAsync(sourceFile, registryConfiguration, ct);
         File.Delete(targetFile);
+
         try
         {
-            var startInfo = new ProcessStartInfo
+            var psi = new ProcessStartInfo
             {
                 FileName = Path.GetFullPath(executable),
                 UseShellExecute = false,
-                ArgumentList = { "-Config", sourceFile, "-TargetConfig", targetFile, "-Verbosity", "quiet" },
+                ArgumentList =
+                {
+                    "-Config", sourceFile,
+                    "-TargetConfig", targetFile,
+                    "-Verbosity", "quiet",
+                },
             };
+
             Console.WriteLine("Authenticating Azure Artifacts npm feeds with vsts-npm-auth. Sign in if prompted.");
-            using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start vsts-npm-auth.");
+            using var process = Process.Start(psi) ?? throw new InvalidOperationException("Could not start vsts-npm-auth.");
+
             try
             {
                 await process.WaitForExitAsync(ct);
@@ -100,10 +123,12 @@ public static class VstsNpmAuthHelper
                 await process.WaitForExitAsync(CancellationToken.None);
                 throw;
             }
+
             if (process.ExitCode != 0)
             {
                 throw new InvalidOperationException($"vsts-npm-auth failed with exit code {process.ExitCode}.");
             }
+
             return await File.ReadAllTextAsync(targetFile, ct);
         }
         finally
