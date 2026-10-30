@@ -57,7 +57,7 @@ public class NpmAuthenticatePlugin : IBuildChartsPlugin
 
     public Task OnAfterGenerateAsync(BuildConfig buildConfig, ChartConfig cartConfig, StringBuilder hclStringBuilder, CancellationToken ct)
     {
-        BakeSecretHelper.AddSecrets(hclStringBuilder, "type=file,id=npmrc,src=.buildcharts/secrets/npmrc");
+        BakeSecretHelper.AddSecret(hclStringBuilder, "type=file,id=npmrc,src=.buildcharts/secrets/npmrc");
         return Task.CompletedTask;
     }
 }

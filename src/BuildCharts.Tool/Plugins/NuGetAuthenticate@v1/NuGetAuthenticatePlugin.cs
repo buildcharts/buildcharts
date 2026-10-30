@@ -114,7 +114,8 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
 
     public Task OnAfterGenerateAsync(BuildConfig buildConfig, ChartConfig cartConfig, StringBuilder hclStringBuilder, CancellationToken ct)
     {
-        BakeSecretHelper.AddSecrets(hclStringBuilder, "type=file,id=ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS,src=.buildcharts/secrets/ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS", "type=file,id=ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN,src=.buildcharts/secrets/ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN");
+        BakeSecretHelper.AddSecret(hclStringBuilder, "type=file,id=ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS,src=.buildcharts/secrets/ARTIFACTS_CREDENTIALPROVIDER_EXTERNAL_FEED_ENDPOINTS");
+        BakeSecretHelper.AddSecret(hclStringBuilder, "type=file,id=ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN,src=.buildcharts/secrets/ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN");
         return Task.CompletedTask;
     }
     
