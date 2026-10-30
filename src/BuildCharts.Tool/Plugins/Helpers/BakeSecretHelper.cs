@@ -43,5 +43,8 @@ public static class BakeSecretHelper
         builder.Insert(arrayClose, separator + "\n" + Quote(secret) + "\n  ");
     }
 
-    private static string Quote(string secret) => "    \"" + secret.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+    private static string Quote(string secret)
+    {
+        return "    \"" + secret.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+    }
 }
