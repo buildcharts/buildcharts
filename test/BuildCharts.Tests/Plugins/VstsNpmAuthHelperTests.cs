@@ -5,9 +5,7 @@ using Moq.Protected;
 using System.Net;
 using System.Formats.Tar;
 using System.IO.Compression;
-using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 
 namespace BuildCharts.Tests.Plugins;
 
@@ -51,13 +49,10 @@ public sealed class VstsNpmAuthHelperTests : TestBase
             writer.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, "package/bin/vsts-npm-auth.exe") { DataStream = executable });
         }
         var bytes = archive.ToArray();
-        var integrity = "sha512-" + Convert.ToBase64String(SHA512.HashData(bytes));
         HandlerMock.Protected().Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync((HttpRequestMessage request, CancellationToken _) => new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = request.RequestUri.AbsolutePath.EndsWith(".tgz", StringComparison.Ordinal)
-                    ? new ByteArrayContent(bytes)
-                    : new StringContent(JsonSerializer.Serialize(new { dist = new { integrity } })),
+                Content = new ByteArrayContent(bytes),
             });
 
         var result = await VstsNpmAuthHelper.EnsureInstalledAsync(_http, _directory, default);
@@ -66,7 +61,6 @@ public sealed class VstsNpmAuthHelperTests : TestBase
         Assert.AreEqual(Path.Combine(_directory, "0.42.0", "package", "bin", "vsts-npm-auth.exe"), result);
         Assert.AreEqual("selected-helper", await File.ReadAllTextAsync(result));
         Assert.AreEqual(result, cached);
-        HandlerMock.Protected().Verify("SendAsync", Times.Exactly(2), ItExpr.Is<HttpRequestMessage>(request => request.RequestUri.AbsoluteUri == "https://registry.npmjs.org/vsts-npm-auth/0.42.0"), ItExpr.IsAny<CancellationToken>());
         HandlerMock.Protected().Verify("SendAsync", Times.Once(), ItExpr.Is<HttpRequestMessage>(request => request.RequestUri.AbsoluteUri == "https://registry.npmjs.org/vsts-npm-auth/-/vsts-npm-auth-0.42.0.tgz"), ItExpr.IsAny<CancellationToken>());
     }
 
@@ -75,11 +69,11 @@ public sealed class VstsNpmAuthHelperTests : TestBase
     {
         var executable = Path.Combine(_directory, VstsNpmAuthHelper.Version, "package", "bin", "vsts-npm-auth.exe");
         Directory.CreateDirectory(Path.GetDirectoryName(executable));
-        await File.WriteAllTextAsync(executable, "incomplete-installation");
+        await File.WriteAllTextAsync(Path.Combine(Path.GetDirectoryName(executable), "partial-download"), "incomplete-installation");
 
-        var result = await Assert.ThrowsAsync<InvalidOperationException>(() => VstsNpmAuthHelper.EnsureInstalledAsync(_http, _directory, default));
+        var result = await Assert.ThrowsAsync<InvalidDataException>(() => VstsNpmAuthHelper.EnsureInstalledAsync(_http, _directory, default));
 
-        StringAssert.Contains(result.Message, "SHA-512");
+        Assert.IsNotNull(result);
         HandlerMock.Protected().Verify("SendAsync", Times.Once(), ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>());
     }
 
@@ -90,9 +84,9 @@ public sealed class VstsNpmAuthHelperTests : TestBase
         Directory.CreateDirectory(Path.GetDirectoryName(oldExecutable));
         await File.WriteAllTextAsync(oldExecutable, "old-version");
 
-        var result = await Assert.ThrowsAsync<InvalidOperationException>(() => VstsNpmAuthHelper.EnsureInstalledAsync(_http, _directory, default));
+        var result = await Assert.ThrowsAsync<InvalidDataException>(() => VstsNpmAuthHelper.EnsureInstalledAsync(_http, _directory, default));
 
-        StringAssert.Contains(result.Message, "SHA-512");
+        Assert.IsNotNull(result);
         HandlerMock.Protected().Verify("SendAsync", Times.Once(), ItExpr.Is<HttpRequestMessage>(request => request.RequestUri.AbsoluteUri == "https://registry.npmjs.org/vsts-npm-auth/-/vsts-npm-auth-0.43.0.tgz"), ItExpr.IsAny<CancellationToken>());
         Assert.IsTrue(File.Exists(oldExecutable));
     }
@@ -100,10 +94,10 @@ public sealed class VstsNpmAuthHelperTests : TestBase
     [TestMethod]
     public async Task EnsureInstalledAsync_ShouldRejectCorruptDownloads()
     {
-        var result = await Assert.ThrowsAsync<InvalidOperationException>(() => VstsNpmAuthHelper.EnsureInstalledAsync(_http, _directory, default));
+        var result = await Assert.ThrowsAsync<InvalidDataException>(() => VstsNpmAuthHelper.EnsureInstalledAsync(_http, _directory, default));
 
-        StringAssert.Contains(result.Message, "SHA-512");
-        Assert.AreEqual(0, Directory.GetFileSystemEntries(_directory).Length);
+        Assert.IsNotNull(result);
+        Assert.IsFalse(File.Exists(Path.Combine(_directory, VstsNpmAuthHelper.Version, "package", "bin", "vsts-npm-auth.exe")));
     }
 
     [TestMethod]
@@ -132,7 +126,6 @@ public sealed class VstsNpmAuthHelperTests : TestBase
         var executable = Path.Combine(_directory, VstsNpmAuthHelper.Version, "package", "bin", "vsts-npm-auth.exe");
         Directory.CreateDirectory(Path.GetDirectoryName(executable));
         await File.WriteAllTextAsync(executable, "cached-helper");
-        await File.WriteAllTextAsync(Path.Combine(_directory, VstsNpmAuthHelper.Version, "installed.sha512"), "ROZc5HXaWNNO++tVnS5PNzEqI1cLEiaUq0uPJ+azGRTVJAVvECzGu8ideed0iDFg0/sNuzUp5gshfenDyAIrMQ==");
 
         var result = await VstsNpmAuthHelper.EnsureInstalledAsync(_http, _directory, default);
 

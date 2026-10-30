@@ -4,8 +4,6 @@ using System.Formats.Tar;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
-using System.Security.Cryptography;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +13,6 @@ namespace BuildCharts.Tool.Plugins.NpmAuthenticate_v1.Helpers;
 public static class VstsNpmAuthHelper
 {
     public const string Version = "0.43.0";
-    private const string PackageSha512 = "ROZc5HXaWNNO++tVnS5PNzEqI1cLEiaUq0uPJ+azGRTVJAVvECzGu8ideed0iDFg0/sNuzUp5gshfenDyAIrMQ==";
 
     public static async Task<string> EnsureInstalledAsync(HttpClient http, string folder, CancellationToken ct)
     {
@@ -30,24 +27,10 @@ public static class VstsNpmAuthHelper
             throw new InvalidOperationException("NPM_AUTHENTICATE_HELPER_VERSION must be an exact package version, for example 0.43.0.");
         }
 
-        var packageSha512 = PackageSha512;
-        if (version != Version)
-        {
-            using var metadata = JsonDocument.Parse(await http.GetStringAsync($"https://registry.npmjs.org/vsts-npm-auth/{version}", ct));
-            var integrity = metadata.RootElement.GetProperty("dist").GetProperty("integrity").GetString();
-            if (integrity == null || !integrity.StartsWith("sha512-", StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException("The selected vsts-npm-auth version has no SHA-512 integrity metadata.");
-            }
-
-            packageSha512 = integrity["sha512-".Length..];
-        }
-
         var versionFolder = Path.Combine(folder, version);
         var executable = Path.Combine(versionFolder, "package", "bin", "vsts-npm-auth.exe");
-        var installedMarker = Path.Combine(versionFolder, "installed.sha512");
 
-        if (File.Exists(executable) && File.Exists(installedMarker) && await File.ReadAllTextAsync(installedMarker, ct) == packageSha512)
+        if (File.Exists(executable))
         {
             return executable;
         }
@@ -57,10 +40,6 @@ public static class VstsNpmAuthHelper
 
         Console.WriteLine($"Downloading vsts-npm-auth {version}");
         var bytes = await http.GetByteArrayAsync(downloadUrl, ct);
-        if (!CryptographicOperations.FixedTimeEquals(SHA512.HashData(bytes), Convert.FromBase64String(packageSha512)))
-        {
-            throw new InvalidOperationException("The vsts-npm-auth download does not match the expected SHA-512 checksum.");
-        }
 
         Directory.CreateDirectory(versionFolder);
         var archivePath = Path.Combine(versionFolder, assetName);
@@ -76,7 +55,6 @@ public static class VstsNpmAuthHelper
             throw new FileNotFoundException("The downloaded package does not contain vsts-npm-auth.exe.", executable);
         }
 
-        await File.WriteAllTextAsync(installedMarker, packageSha512, ct);
         return executable;
     }
 

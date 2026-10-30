@@ -20,13 +20,13 @@ The BuildCharts lifecycle differs from the Azure task. The plugin leaves the sou
 
 ## Local Windows sign-in
 
-When an Azure DevOps Services npm feed has no supplied credentials, the plugin downloads Microsoft's `vsts-npm-auth` **0.43.0** directly from `https://registry.npmjs.org/vsts-npm-auth/-/vsts-npm-auth-0.43.0.tgz`. It verifies the pinned SHA-512 checksum and extracts the complete package under:
+When an Azure DevOps Services npm feed has no supplied credentials, the plugin downloads Microsoft's `vsts-npm-auth` **0.43.0** directly from `https://registry.npmjs.org/vsts-npm-auth/-/vsts-npm-auth-0.43.0.tgz`. It extracts the complete package under:
 
 ```text
 .buildcharts/plugins/NpmAuthenticate@v1/vsts-npm-auth/0.43.0/package/bin/
 ```
 
-Set `NPM_AUTHENTICATE_HELPER_VERSION` to download another exact version. The download and installation directory use that version, and its SHA-512 is verified against the official npm registry metadata. Unset or empty uses the pinned default `0.43.0`.
+Set `NPM_AUTHENTICATE_HELPER_VERSION` to download another exact version. The download and installation directory use that version. Unset or empty uses the default `0.43.0`.
 
 ```powershell
 $env:NPM_AUTHENTICATE_HELPER_VERSION = '0.43.0'
@@ -38,7 +38,7 @@ The plugin derives the feed URLs from the project's selected `.npmrc` on each ge
 
 Existing job tokens, service connections and credentials in the working file take precedence. `TF_BUILD=true`, `GITHUB_ACTIONS=true`, and `CI=true` or `CI=1` disable local sign-in; missing Azure feed credentials fail generation in CI. The helper supports Windows and Azure DevOps Services only. Other platforms and Azure DevOps Server continue using supplied credentials.
 
-As with the NuGet helper, a fresh `buildcharts generate` removes `.buildcharts`, so the helper is downloaded again after that cleanup. Within an existing generation directory, the pinned version is reused.
+As with the NuGet helper, a fresh `buildcharts generate` removes `.buildcharts`, so the helper is downloaded again after that cleanup. Within an existing generation directory, the selected version is reused.
 
 ## Configuration
 
