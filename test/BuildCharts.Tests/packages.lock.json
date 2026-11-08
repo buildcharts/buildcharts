@@ -534,10 +534,10 @@
           "Microsoft.Extensions.DependencyInjection": "[10.0.8, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.12, )",
           "Microsoft.Extensions.Hosting": "[10.0.3, )",
-          "OrasProject.Oras": "[0.5.0, )",
+          "OrasProject.Oras": "[0.8.0, )",
           "SharpZipLib": "[1.4.2, )",
           "Testcontainers": "[4.16.0, )",
-          "YamlDotNet": "[16.3.0, )"
+          "YamlDotNet": "[18.1.0, )"
         }
       },
       "McMaster.Extensions.CommandLineUtils": {
@@ -617,9 +617,9 @@
       },
       "OrasProject.Oras": {
         "type": "CentralTransitive",
-        "requested": "[0.5.0, )",
-        "resolved": "0.5.0",
-        "contentHash": "JpMHoRYMJxW8WhsTmjnuHJ+om1Y3r6UrcDczMDrCDMu8iMnNpsp1a5QmsM/5MyDvShbw/N6Bd3nBThivyTVW9Q==",
+        "requested": "[0.8.0, )",
+        "resolved": "0.8.0",
+        "contentHash": "FkOntn8ONqsIEQevC62yusuvxOzBtCFFlkNek/fBmvuY7R9F4g/ikLdx/uNGVRoNejlGA+inm+HsNEfxuLmbVg==",
         "dependencies": {
           "Microsoft.Extensions.Caching.Abstractions": "8.0.0",
           "Microsoft.Extensions.Caching.Memory": "8.0.1"
@@ -646,9 +646,9 @@
       },
       "YamlDotNet": {
         "type": "CentralTransitive",
-        "requested": "[16.3.0, )",
-        "resolved": "16.3.0",
-        "contentHash": "SgMOdxbz8X65z8hraIs6hOEdnkH6hESTAIUa7viEngHOYaH+6q5XJmwr1+yb9vJpNQ19hCQY69xbFsLtXpobQA=="
+        "requested": "[18.1.0, )",
+        "resolved": "18.1.0",
+        "contentHash": "5K+9KFg2TdTl7VXv88Qzi/0lqK6JFoNP3lRuImPYGRV7K/QYklDyTrj4+A+KAki1JsQi6qKY+hDyY7d6WRqjrw=="
       }
     }
   }
