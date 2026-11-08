@@ -1,0 +1,15 @@
+{
+  "name": "buildcharts-sample-npm-testcontainers",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.9",
+  "scripts": {
+    "build-prod": "node build.mjs",
+    "test": "node run-tests.mjs"
+  },
+  "devDependencies": {
+    "c8": "12.0.0",
+    "testcontainers": "12.2.1"
+  }
+}

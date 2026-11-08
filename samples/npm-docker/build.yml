@@ -1,0 +1,17 @@
+version: v1beta
+
+variables:
+  - VERSION
+  - COMMIT
+
+targets:
+  src/package.json:
+    - type: build
+      with:
+        contexts:
+          base: docker-image://node:22-bookworm-slim
+    - type: docker
+      with:
+        contexts:
+          base: docker-image://nginx:alpine-slim
+        tags: ["docker.io/eddietisma/npm-docker:${VERSION}-${COMMIT}"]

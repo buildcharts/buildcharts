@@ -1,0 +1,15 @@
+version: v1beta
+
+variables:
+  - VERSION
+  - COMMIT
+
+targets:
+  src/package.json:
+    type: build
+    with:
+      contexts:
+        base: docker-image://node:22-bookworm-slim
+
+  dist/npm-npm:
+    type: npm

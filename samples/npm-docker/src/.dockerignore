@@ -1,0 +1,6 @@
+.npmrc
+node_modules
+dist
+test-results
+.buildcharts
+.git
