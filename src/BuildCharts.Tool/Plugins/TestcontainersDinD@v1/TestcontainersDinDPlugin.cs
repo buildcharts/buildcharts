@@ -99,7 +99,7 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
             {
                 ["name"] = new Dictionary<string, bool>
                 {
-                    [CONTAINER_NAME] = true,
+                    [$"^/{CONTAINER_NAME}$"] = true,
                 },
             },
         }, ct);
