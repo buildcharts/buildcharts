@@ -9,7 +9,7 @@ public static class BakeSecretHelper
     public static void AddSecret(StringBuilder builder, string secret)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        var text = builder.ToString();
+        var text = Regex.Replace(builder.ToString(), @"""(?:\\.|[^""\\])*""|#[^\r\n]*|//[^\r\n]*|/\*[\s\S]*?\*/", match => match.Value.StartsWith('"') ? match.Value : Regex.Replace(match.Value, @"[^\r\n]", " "));
         var target = Regex.Match(text, "(?m)^target\\s+\"_common\"\\s*\\{");
         if (!target.Success)
         {
@@ -30,12 +30,11 @@ public static class BakeSecretHelper
         }
         var arrayOpen = open + 1 + attribute.Index + attribute.Length - 1;
         var arrayClose = BakeHclHelper.FindClosingDelimiter(text, arrayOpen, '[', ']');
-        if (arrayClose < 0)
+        if (arrayClose < 0 || arrayClose > close)
         {
             throw new InvalidOperationException("Malformed HCL secret target.");
         }
         var existing = text[(arrayOpen + 1)..arrayClose];
-        existing = Regex.Replace(existing, @"""(?:\\.|[^""\\])*""|#[^\r\n]*|//[^\r\n]*|/\*[\s\S]*?\*/", match => match.Value.StartsWith('"') ? match.Value : string.Empty);
         if (existing.Contains(Quote(secret).Trim(), StringComparison.Ordinal))
         {
             return;

@@ -59,6 +59,9 @@ public sealed class BakeSecretHelperTests : TestBase
     [DataRow("# existing secret")]
     [DataRow("// existing secret")]
     [DataRow("/* existing secret */")]
+    [DataRow("# existing secret ] } \"")]
+    [DataRow("// existing secret ] } \"")]
+    [DataRow("/* existing secret ] } \" */")]
     public void AddSecret_ShouldPreserveTrailingCommaBeforeComment(string comment)
     {
         var builder = new StringBuilder("target \"_common\" {\n  secret = [\n    \"type=env,id=existing\", " + comment + "\n  ]\n}\n");

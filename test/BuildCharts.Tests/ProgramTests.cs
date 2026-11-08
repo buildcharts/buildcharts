@@ -22,7 +22,7 @@ public sealed class ProgramTests : TestBase
 
             // Assert
             Assert.AreEqual(1, result);
-            Assert.AreEqual($"buildcharts: unknown command: buildcharts asd{Environment.NewLine}{Environment.NewLine}Run 'buildcharts --help' for more information{Environment.NewLine}", error.ToString());
+            Assert.AreEqual($"buildcharts: unknown command 'asd'{Environment.NewLine}{Environment.NewLine}Run 'buildcharts --help' for more information{Environment.NewLine}", error.ToString());
         }
         finally
         {
