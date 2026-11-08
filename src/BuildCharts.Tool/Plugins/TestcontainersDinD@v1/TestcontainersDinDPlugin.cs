@@ -89,7 +89,7 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
     private static async Task<ContainerListResponse> IfAlreadyExistsAndSameImageOtherwiseKill(CancellationToken ct)
     {
         var dockerEndpoint = TestcontainersSettings.OS.DockerEndpointAuthConfig.Endpoint;
-        using var client = new DockerClientConfiguration(dockerEndpoint).CreateClient();
+        using var client = new DockerClientBuilder().WithEndpoint(dockerEndpoint).Build();
 
         // Query containers by name (Docker returns names with leading '/').
         var list = await client.Containers.ListContainersAsync(new ContainersListParameters
