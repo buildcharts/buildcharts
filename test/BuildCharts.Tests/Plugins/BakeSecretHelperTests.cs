@@ -40,16 +40,33 @@ public sealed class BakeSecretHelperTests : TestBase
     }
 
     [TestMethod]
-    public void AddSecret_ShouldIgnoreDuplicateSecret()
+    [DataRow("type=env,id=custom")]
+    [DataRow("type=file,id=custom,src=https://example.com/secrets#feed")]
+    [DataRow("type=file,id=custom,src=secrets/*feed*/")]
+    public void AddSecret_ShouldIgnoreDuplicateSecret(string secret)
     {
         var builder = new StringBuilder("target \"_common\" {}\n");
-        BakeSecretHelper.AddSecret(builder, "type=env,id=custom");
+        BakeSecretHelper.AddSecret(builder, secret);
         var original = builder.ToString();
+
+        BakeSecretHelper.AddSecret(builder, secret);
+        var result = builder.ToString();
+
+        Assert.AreEqual(original, result);
+    }
+
+    [TestMethod]
+    [DataRow("# existing secret")]
+    [DataRow("// existing secret")]
+    [DataRow("/* existing secret */")]
+    public void AddSecret_ShouldPreserveTrailingCommaBeforeComment(string comment)
+    {
+        var builder = new StringBuilder("target \"_common\" {\n  secret = [\n    \"type=env,id=existing\", " + comment + "\n  ]\n}\n");
 
         BakeSecretHelper.AddSecret(builder, "type=env,id=custom");
         var result = builder.ToString();
 
-        Assert.AreEqual(original, result);
+        Assert.AreEqual("target \"_common\" {\n  secret = [\n    \"type=env,id=existing\", " + comment + "\n  \n    \"type=env,id=custom\"\n  ]\n}\n", result);
     }
 
     [TestMethod]

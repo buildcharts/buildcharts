@@ -35,6 +35,7 @@ public static class BakeSecretHelper
             throw new InvalidOperationException("Malformed HCL secret target.");
         }
         var existing = text[(arrayOpen + 1)..arrayClose];
+        existing = Regex.Replace(existing, @"""(?:\\.|[^""\\])*""|#[^\r\n]*|//[^\r\n]*|/\*[\s\S]*?\*/", match => match.Value.StartsWith('"') ? match.Value : string.Empty);
         if (existing.Contains(Quote(secret).Trim(), StringComparison.Ordinal))
         {
             return;
