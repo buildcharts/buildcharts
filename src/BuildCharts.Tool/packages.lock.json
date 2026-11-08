@@ -77,9 +77,9 @@
       },
       "OrasProject.Oras": {
         "type": "Direct",
-        "requested": "[0.5.0, )",
-        "resolved": "0.5.0",
-        "contentHash": "JpMHoRYMJxW8WhsTmjnuHJ+om1Y3r6UrcDczMDrCDMu8iMnNpsp1a5QmsM/5MyDvShbw/N6Bd3nBThivyTVW9Q==",
+        "requested": "[0.8.0, )",
+        "resolved": "0.8.0",
+        "contentHash": "FkOntn8ONqsIEQevC62yusuvxOzBtCFFlkNek/fBmvuY7R9F4g/ikLdx/uNGVRoNejlGA+inm+HsNEfxuLmbVg==",
         "dependencies": {
           "Microsoft.Extensions.Caching.Abstractions": "8.0.0",
           "Microsoft.Extensions.Caching.Memory": "8.0.1"
