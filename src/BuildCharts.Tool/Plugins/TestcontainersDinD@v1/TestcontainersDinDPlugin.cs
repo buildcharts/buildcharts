@@ -1,7 +1,7 @@
 ﻿
 using BuildCharts.Tool.Configuration.Models;
 using BuildCharts.Tool.Plugins;
-using BuildCharts.Tool.Plugins.TestcontainersDinD_v1.Helpers;
+using BuildCharts.Tool.Plugins.Helpers;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using DotNet.Testcontainers.Builders;
@@ -71,7 +71,7 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
 
     public Task OnAfterGenerateAsync(BuildConfig buildConfig, ChartConfig cartConfig, StringBuilder hclStringBuilder, CancellationToken ct)
     {
-        BakeHclPatchHelper.Execute(hclStringBuilder, _containerIp);
+        BakeHclHelper.AddExtraHosts(hclStringBuilder, _containerIp);
         return Task.CompletedTask;
     }
     
