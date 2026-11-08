@@ -1,14 +1,10 @@
 ﻿using BuildCharts.Tool.Configuration.Models;
-using BuildCharts.Tool.Plugins.NuGetAuthenticate_v1.Helpers;
 using BuildCharts.Tool.Plugins.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -75,7 +71,6 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
             {
                 // Ensure the credential provider is downloaded and fetch token
                 var targetFolder = Path.Combine(Directory.GetCurrentDirectory(), ".buildcharts", "plugins", Name, "microsoft-artifacts-credprovider");
-                await MicrosoftCredentialProviderHelper.EnsureInstalledAsync(targetFolder, ct);
 
                 // Generate the feed-endpoints JSON used by the Credential provider when restoring nuget.
                 var tokens = new List<(Uri Source, string Token)>();
@@ -85,7 +80,10 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
                     // Only fetch credentials once per organization.
                     Console.WriteLine($"Fetching credentials for {sourceByOrganizationUrl.Key} via Azure Artifacts Credential Provider");
 
-                    var token = await FetchTokenForFeedAsync(targetFolder, sourceByOrganizationUrl.First(), ct);
+                    var version = Environment.GetEnvironmentVariable("NUGET_AUTHENTICATE_HELPER_VERSION");
+                    var token = await AzureArtifactsCredentialProvider.FetchTokenForFeedAsync(
+                        await AzureArtifactsCredentialProvider.EnsureInstalledAsync(targetFolder, ct, version),
+                        sourceByOrganizationUrl.First(), ct);
 
                     foreach (var source in sourceByOrganizationUrl)
                     {
@@ -196,27 +194,6 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
         Console.WriteLine($"Successfully created file '{Path.GetRelativePath(Directory.GetCurrentDirectory(), filePath)}'");
     }
 
-    private static async Task<string> FetchTokenForFeedAsync(string targetFolder, Uri source, CancellationToken ct)
-    {
-        var token = await MicrosoftCredentialProviderHelper.FetchCredentialsAsync(targetFolder, source, isRetry: false, ct);
-        if (!await IsTokenValidAsync(source, token, ct))
-        {
-            if (Environment.GetEnvironmentVariable("BUILDSCHARTS_VERBOSE") == "1")
-            {
-                Console.WriteLine("Credential Provider returned invalid credentials. Retrying with IsRetry forcing a refresh...");
-            }
-
-            token = await MicrosoftCredentialProviderHelper.FetchCredentialsAsync(targetFolder, source, isRetry: true, ct);
-
-            if (!await IsTokenValidAsync(source, token, ct))
-            {
-                throw new InvalidOperationException($"Credential Provider returned invalid credentials after retry for {source}.");
-            }
-        }
-
-        return token;
-    }
-
     private static string GetOrganizationUrl(Uri source)
     {
         if (source == null)
@@ -233,22 +210,5 @@ public class NuGetAuthenticatePlugin : IBuildChartsPlugin
         var segments = source.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
         var org = segments.Length > 0 ? segments[0] : "";
         return $"{source.Scheme}://{source.Host}/{org}";
-    }
-
-    private static async Task<bool> IsTokenValidAsync(Uri feedUrl, string token, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            return false;
-        }
-
-        using var http = new HttpClient();
-        var authValue = Convert.ToBase64String(Encoding.ASCII.GetBytes($"docker:{token}"));
-
-        using var request = new HttpRequestMessage(HttpMethod.Get, feedUrl);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authValue);
-
-        using var response = await http.SendAsync(request, ct);
-        return response.StatusCode == HttpStatusCode.OK;
     }
 }

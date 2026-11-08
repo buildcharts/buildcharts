@@ -3,27 +3,37 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Formats.Tar;
 
-namespace BuildCharts.Tool.Plugins.NuGetAuthenticate_v1.Helpers;
+namespace BuildCharts.Tool.Plugins.Helpers;
 
-public static class MicrosoftCredentialProviderHelper
+public static class AzureArtifactsCredentialProvider
 {
-    public static async Task EnsureInstalledAsync(string folder, CancellationToken ct, string version = null)
+    public static async Task<string> EnsureInstalledAsync(string folder, CancellationToken ct, string version = null)
     {
         if (folder == null)
         {
             throw new ArgumentNullException(nameof(folder));
         }
 
+        version = version?.Trim();
+        if (!string.IsNullOrWhiteSpace(version) && !Regex.IsMatch(version, @"\Av?[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?\z"))
+        {
+            throw new InvalidOperationException("Version must be an exact Azure Artifacts Credential Provider release version.");
+        }
+
+        folder = Path.Combine(folder, string.IsNullOrWhiteSpace(version) ? "latest" : version.TrimStart('v'));
         if (Directory.Exists(folder) && Directory.EnumerateFiles(folder, "CredentialProvider.Microsoft.dll", SearchOption.AllDirectories).Any())
         {
-            return;
+            return folder;
         }
 
         Directory.CreateDirectory(folder);
@@ -60,6 +70,29 @@ public static class MicrosoftCredentialProviderHelper
         {
             throw new FileNotFoundException("Credential Provider DLL not found after extraction: " + folder);
         }
+
+        return folder;
+    }
+
+    public static async Task<string> FetchTokenForFeedAsync(string targetFolder, Uri source, CancellationToken ct)
+    {
+        var token = await FetchCredentialsAsync(targetFolder, source, isRetry: false, ct);
+        if (!await IsTokenValidAsync(source, token, ct))
+        {
+            if (Environment.GetEnvironmentVariable("BUILDSCHARTS_VERBOSE") == "1")
+            {
+                Console.WriteLine("Credential Provider returned invalid credentials. Retrying with IsRetry forcing a refresh...");
+            }
+
+            token = await FetchCredentialsAsync(targetFolder, source, isRetry: true, ct);
+
+            if (!await IsTokenValidAsync(source, token, ct))
+            {
+                throw new InvalidOperationException($"Credential Provider returned invalid credentials after retry for {source}.");
+            }
+        }
+
+        return token;
     }
 
     public static async Task<string> FetchCredentialsAsync(string cpFolder, Uri feedUrl, bool isRetry, CancellationToken ct)
@@ -128,5 +161,22 @@ public static class MicrosoftCredentialProviderHelper
         var output = outputBuilder.ToString();
         using var doc = JsonDocument.Parse(output);
         return doc.RootElement.GetProperty("Password").GetString();
+    }
+
+    private static async Task<bool> IsTokenValidAsync(Uri feedUrl, string token, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return false;
+        }
+
+        using var http = new HttpClient();
+        var authValue = Convert.ToBase64String(Encoding.ASCII.GetBytes($"docker:{token}"));
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, feedUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authValue);
+
+        using var response = await http.SendAsync(request, ct);
+        return response.StatusCode == HttpStatusCode.OK;
     }
 }

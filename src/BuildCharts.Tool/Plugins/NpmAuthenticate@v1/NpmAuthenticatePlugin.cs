@@ -1,13 +1,9 @@
 using BuildCharts.Tool.Configuration.Models;
 using BuildCharts.Tool.Plugins.Helpers;
-using BuildCharts.Tool.Plugins.NpmAuthenticate_v1.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -82,14 +78,14 @@ public class NpmAuthenticatePlugin : IBuildChartsPlugin
                     // Ensure the credential provider is downloaded and fetch token
                     var folder = Path.Combine(Directory.GetCurrentDirectory(), ".buildcharts", "plugins", Name, "microsoft-artifacts-credprovider");
                     var version = Environment.GetEnvironmentVariable("NPM_AUTHENTICATE_HELPER_VERSION");
-                    folder = await NpmCredentialProviderHelper.EnsureInstalledAsync(folder, ct, version);
+                    folder = await AzureArtifactsCredentialProvider.EnsureInstalledAsync(folder, ct, version);
 
                     // Generate the npmrc credentials used by npm when installing packages.
                     foreach (var sourceByOrganizationUrl in missingSources.GroupBy(GetOrganizationUrl, StringComparer.OrdinalIgnoreCase))
                     {
                         // Only fetch credentials once per organization.
                         Console.WriteLine($"Fetching credentials for {sourceByOrganizationUrl.Key} via Azure Artifacts Credential Provider");
-                        var token = await FetchTokenForFeedAsync(folder, sourceByOrganizationUrl.First(), ct);
+                        var token = await AzureArtifactsCredentialProvider.FetchTokenForFeedAsync(folder, sourceByOrganizationUrl.First(), ct);
 
                         foreach (var source in sourceByOrganizationUrl)
                         {
@@ -124,44 +120,6 @@ public class NpmAuthenticatePlugin : IBuildChartsPlugin
         }
         BakeHclHelper.AddSecret(hclStringBuilder, "type=file,id=npmrc,src=.buildcharts/secrets/npmrc");
         return Task.CompletedTask;
-    }
-
-    private static async Task<string> FetchTokenForFeedAsync(string targetFolder, Uri source, CancellationToken ct)
-    {
-        var token = await NpmCredentialProviderHelper.FetchCredentialsAsync(targetFolder, source, isRetry: false, ct);
-        if (!await IsTokenValidAsync(source, token, ct))
-        {
-            if (Environment.GetEnvironmentVariable("BUILDSCHARTS_VERBOSE") == "1")
-            {
-                Console.WriteLine("Credential Provider returned invalid credentials. Retrying with IsRetry forcing a refresh...");
-            }
-
-            token = await NpmCredentialProviderHelper.FetchCredentialsAsync(targetFolder, source, isRetry: true, ct);
-
-            if (!await IsTokenValidAsync(source, token, ct))
-            {
-                throw new InvalidOperationException($"Credential Provider returned invalid credentials after retry for {source}.");
-            }
-        }
-
-        return token;
-    }
-
-    private static async Task<bool> IsTokenValidAsync(Uri feedUrl, string token, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            return false;
-        }
-
-        using var http = new HttpClient();
-        var authValue = Convert.ToBase64String(Encoding.ASCII.GetBytes($"docker:{token}"));
-
-        using var request = new HttpRequestMessage(HttpMethod.Get, feedUrl);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authValue);
-
-        using var response = await http.SendAsync(request, ct);
-        return response.StatusCode == HttpStatusCode.OK;
     }
 
     private static void WriteValueToFile(string key, string value)

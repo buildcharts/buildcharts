@@ -339,6 +339,27 @@ public sealed class NpmAuthenticatePluginTests : TestBase
     }
 
     [TestMethod]
+    [DataRow(null, null)]
+    [DataRow("TF_BUILD", "true")]
+    [DataRow("GITHUB_ACTIONS", "true")]
+    [DataRow("CI", "true")]
+    [DataRow("CI", "1")]
+    public async Task OnBeforeGenerateAsync_ShouldUseProviderWhenEnvironmentCredentialsAreMissing(string variable, string value)
+    {
+        Environment.SetEnvironmentVariable("SYSTEM_ACCESSTOKEN", null);
+        Environment.SetEnvironmentVariable("NPM_AUTHENTICATE_HELPER_VERSION", "invalid");
+        if (variable != null)
+        {
+            Environment.SetEnvironmentVariable(variable, value);
+        }
+
+        var result = await Assert.ThrowsAsync<InvalidOperationException>(() => Sut.OnBeforeGenerateAsync(new BuildConfig(), default));
+
+        StringAssert.Contains(result.Message, "exact Azure Artifacts Credential Provider release version");
+        Assert.IsFalse(File.Exists(".buildcharts/secrets/npmrc"));
+    }
+
+    [TestMethod]
     [DataRow("ARTIFACTS_CREDENTIALPROVIDER_ACCESSTOKEN")]
     [DataRow("VSS_NUGET_ACCESSTOKEN")]
     [DataRow("SYSTEM_ACCESSTOKEN")]
