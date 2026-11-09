@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace BuildCharts.Tool.Init.Generation;
 
@@ -74,9 +75,19 @@ public static class DotNet
                 types.Add("docker");
 
                 var projectName = Path.GetFileNameWithoutExtension(file).ToLowerInvariant();
+                var project = XDocument.Parse(content);
+                var sdks = (project.Root?.Attribute("Sdk")?.Value ?? "").Split(';')
+                    .Concat(project.Descendants().Where(e => e.Name.LocalName == "Sdk").Select(e => e.Attribute("Name")?.Value));
+                var isWorker = sdks.Any(sdk => sdk?.Split('/')[0].Trim() == "Microsoft.NET.Sdk.Worker");
+                var requiresAspNet = sdks.Any(sdk => sdk?.Split('/')[0].Trim() == "Microsoft.NET.Sdk.Web")
+                    || project.Descendants().Any(e => e.Name.LocalName == "FrameworkReference" && e.Attribute("Include")?.Value == "Microsoft.AspNetCore.App");
+                var runtimeImage = isWorker && !requiresAspNet ? "runtime" : "aspnet";
+                var targetFramework = project.Descendants().FirstOrDefault(e => e.Name.LocalName == "TargetFramework")?.Value;
+                var runtimeVersion = Regex.Match(targetFramework ?? "", @"^net(\d+\.\d+)");
+                var runtimeTag = runtimeVersion.Success ? runtimeVersion.Groups[1].Value : sdkVersion;
                 with["contexts"] = new Dictionary<string, string>
                 {
-                    ["base"] = $"docker-image://mcr.microsoft.com/dotnet/aspnet:{sdkVersion}",
+                    ["base"] = $"docker-image://mcr.microsoft.com/dotnet/{runtimeImage}:{runtimeTag}",
                 };
                 with["tags"] = new[] { $"docker.io/username/{projectName}:${{VERSION}}-${{COMMIT}}" };
             }
