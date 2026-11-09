@@ -75,9 +75,13 @@ public static class DotNet
 
                 var projectName = Path.GetFileNameWithoutExtension(file).ToLowerInvariant();
                 var projectContent = Regex.Replace(content, @"<!--.*?-->", "", RegexOptions.Singleline);
-                var isWorker = projectContent.Contains("Microsoft.NET.Sdk.Worker");
-                var requiresAspNet = projectContent.Contains("Microsoft.NET.Sdk.Web") || projectContent.Contains("Microsoft.AspNetCore.App");
-                var runtimeImage = isWorker && !requiresAspNet ? "runtime" : "aspnet";
+                var runtimeImage = "aspnet";
+                if (projectContent.Contains("Microsoft.NET.Sdk.Worker") &&
+                    !projectContent.Contains("Microsoft.NET.Sdk.Web") &&
+                    !projectContent.Contains("Microsoft.AspNetCore.App"))
+                {
+                    runtimeImage = "runtime";
+                }
                 var runtimeVersion = Regex.Match(projectContent, @"<TargetFramework>net(\d+\.\d+)");
                 var runtimeTag = runtimeVersion.Success ? runtimeVersion.Groups[1].Value : sdkVersion;
                 with["contexts"] = new Dictionary<string, string>
