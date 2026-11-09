@@ -42,7 +42,7 @@ public sealed class DotNetTests : TestBase
     [DataRow("Microsoft.NET.Sdk", "", "aspnet")]
     [DataRow("Microsoft.NET.Sdk.Worker", "<ItemGroup><FrameworkReference Include='Microsoft.AspNetCore.App' /></ItemGroup>", "aspnet")]
     [DataRow("Microsoft.NET.Sdk.Worker;Microsoft.NET.Sdk.Web", "", "aspnet")]
-    [DataRow("Microsoft.NET.Sdk.Worker", "<!-- <FrameworkReference Include='Microsoft.AspNetCore.App' /> -->", "runtime")]
+    [DataRow("Microsoft.NET.Sdk.Worker", "<!-- <FrameworkReference Include='Microsoft.AspNetCore.App' /> -->", "aspnet")]
     public async Task CreateBuildConfig_ShouldSelectRuntimeImage(string sdk, string references, string image)
     {
         File.WriteAllText("src/Example.Worker/Example.Worker.csproj", $"""
