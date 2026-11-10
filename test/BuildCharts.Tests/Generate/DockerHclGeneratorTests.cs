@@ -434,7 +434,10 @@ public sealed class DockerHclGeneratorTests : TestBase
     }
 
     [TestMethod]
-    public async Task GenerateAsync_ShouldEmitTargetContextThroughMatrixItem()
+    [DataRow("docker-image://mcr.microsoft.com/dotnet/aspnet:10.0")]
+    [DataRow("docker-image://mcr.microsoft.com/dotnet/runtime:9.0")]
+    [DataRow("docker-image://registry.example.com/custom-runtime:1.2")]
+    public async Task GenerateAsync_ShouldEmitTargetContextThroughMatrixItem(string image)
     {
         // Arrange
         _buildConfig.Targets["src/dotnet-krp/dotnet-krp.csproj"][0].Type = "docker";
@@ -442,7 +445,7 @@ public sealed class DockerHclGeneratorTests : TestBase
         {
             ["contexts"] = new Dictionary<object, object>
             {
-                ["base"] = "docker-image://mcr.microsoft.com/dotnet/aspnet:10.0",
+                ["base"] = image,
             },
         };
         _chartConfig.Dependencies[0].Alias = "docker";
@@ -454,7 +457,7 @@ public sealed class DockerHclGeneratorTests : TestBase
         // Assert
         var hcl = result.ToString();
         StringAssert.Contains(hcl, "        contexts = {");
-        StringAssert.Contains(hcl, "          base = \"docker-image://mcr.microsoft.com/dotnet/aspnet:10.0\"");
+        StringAssert.Contains(hcl, $"          base = \"{image}\"");
         StringAssert.Contains(hcl, "    base = \"${item.contexts.base}\"");
     }
 
