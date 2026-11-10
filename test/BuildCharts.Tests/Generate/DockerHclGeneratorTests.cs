@@ -1,4 +1,5 @@
 using AutoFixture;
+using BuildCharts.Tool.Configuration;
 using BuildCharts.Tool.Configuration.Models;
 using BuildCharts.Tool.Generate;
 
@@ -338,6 +339,98 @@ public sealed class DockerHclGeneratorTests : TestBase
     }
 
     [TestMethod]
+    [DataRow(null)]
+    [DataRow("type=cacheonly")]
+    [DataRow(42)]
+    public async Task GenerateAsync_ShouldEmitEmptyOutputForInvalidValue(object output)
+    {
+        // Arrange
+        _buildConfig.Targets["src/dotnet-krp/dotnet-krp.csproj"][0].With["output"] = output;
+
+        // Act
+        var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
+
+        // Assert
+        var hcl = result.ToString();
+        StringAssert.Contains(hcl, "  output = item.output");
+        StringAssert.Contains(hcl, "        output = []");
+    }
+
+    [TestMethod]
+    public async Task GenerateAsync_ShouldEmitEmptyOutputOverride()
+    {
+        // Arrange
+        _buildConfig.Targets["src/dotnet-krp/dotnet-krp.csproj"][0].With["output"] = new List<object>();
+
+        // Act
+        var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
+
+        // Assert
+        var hcl = result.ToString();
+        StringAssert.Contains(hcl, "  output = item.output");
+        StringAssert.Contains(hcl, "        output = []");
+        Assert.IsFalse(hcl.Contains("type=local", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("build")]
+    [DataRow("docker")]
+    [DataRow("publish")]
+    public async Task GenerateAsync_ShouldEmitExplicitOutputInMatrix(string type)
+    {
+        // Arrange
+        _buildConfig.Targets["src/dotnet-krp/dotnet-krp.csproj"][0].Type = type;
+        _buildConfig.Targets["src/dotnet-krp/dotnet-krp.csproj"][0].With["output"] = new List<object>
+        {
+            "type=cacheonly",
+            "type=local,dest=.buildcharts/custom/${VERSION}",
+        };
+        _chartConfig.Dependencies[0].Alias = type;
+
+        // Act
+        var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
+
+        // Assert
+        var hcl = result.ToString();
+        StringAssert.Contains(hcl, "  output = item.output");
+        StringAssert.Contains(hcl, "        output = [\"type=cacheonly\",\"type=local,dest=.buildcharts/custom/${VERSION}\"]");
+    }
+
+    [TestMethod]
+    [DataRow("build", "\"type=cacheonly,mode=max\"")]
+    [DataRow("docker", "\"type=docker\"")]
+    [DataRow("publish", "\"type=cacheonly,mode=max\",\"type=local,dest=.buildcharts/output/publish\"")]
+    public async Task GenerateAsync_ShouldEmitMixedOutputsWithTypeDefaults(string type, string expectedDefault)
+    {
+        // Arrange
+        _buildConfig = ConfigurationManager.Deserializer.Deserialize<BuildConfig>($"""
+            version: v1beta
+            targets:
+              intermediate:
+                type: {type}
+                with:
+                  output: ["type=cacheonly"]
+              application:
+                type: {type}
+              archive:
+                type: {type}
+                with:
+                  output: ["type=oci,dest=archive.tar"]
+            """);
+        _chartConfig.Dependencies[0].Alias = type;
+
+        // Act
+        var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
+
+        // Assert
+        var hcl = result.ToString();
+        StringAssert.Contains(hcl, "  output = item.output");
+        StringAssert.Contains(hcl, "        output = [\"type=cacheonly\"]");
+        StringAssert.Contains(hcl, $"        output = [{expectedDefault}]");
+        StringAssert.Contains(hcl, "        output = [\"type=oci,dest=archive.tar\"]");
+    }
+
+    [TestMethod]
     [DataRow("build", "output = [\"type=cacheonly,mode=max\"]", "", "")]
     [DataRow("docker", "output = [\"type=docker\"]", "", "")]
     [DataRow("publish", "output = [", "\"type=cacheonly,mode=max\",", "\"type=local,dest=.buildcharts/output/publish\"")]
@@ -484,6 +577,19 @@ public sealed class DockerHclGeneratorTests : TestBase
         StringAssert.Contains(hcl, "    git = \".git\"");
         Assert.IsFalse(hcl.Contains("        contexts = {", StringComparison.Ordinal));
         Assert.IsFalse(hcl.Contains("item.contexts.git", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task GenerateAsync_ShouldEscapeOutputPaths()
+    {
+        // Arrange
+        _buildConfig.Targets["src/dotnet-krp/dotnet-krp.csproj"][0].With["output"] = new[] { @"type=local,dest=C:\build\output" };
+
+        // Act
+        var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
+
+        // Assert
+        StringAssert.Contains(result.ToString(), "        output = [\"type=local,dest=C:\\\\build\\\\output\"]");
     }
 
     [TestMethod]

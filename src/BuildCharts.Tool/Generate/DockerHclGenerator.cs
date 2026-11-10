@@ -71,6 +71,7 @@ public class DockerHclGenerator
             var hasTags = targets.Any(x => x.Definition.With.ContainsKey("tags"));
             var hasAllow = targets.Any(x => x.Definition.With.ContainsKey("allow"));
             var hasDockerfile = targets.Any(x => x.Definition.With.ContainsKey("dockerfile"));
+            var hasOutput = targets.Any(x => x.Definition.With.ContainsKey("output"));
             var hasTypeMatrix = typeMatrix.Count > 0;
             var hasTypeContexts = typeContexts.Count > 0;
             var matrixSuffix = string.Join("_", typeMatrix.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).Select(k => $"${{{k}}}"));
@@ -94,7 +95,11 @@ public class DockerHclGenerator
             }
 
             // Emit output.
-            if (type == "build")
+            if (hasOutput)
+            {
+                sb.AppendLine("  output = item.output");
+            }
+            else if (type == "build")
             {
                 sb.AppendLine("  output = [\"type=cacheonly,mode=max\"]");
             }
@@ -121,6 +126,13 @@ public class DockerHclGenerator
                 sb.AppendLine("      {");
                 sb.AppendLine($"        name = \"{targetName}\",");
                 sb.AppendLine($"        src  = \"{item.Key}\"");
+
+                // Emit output in matrix.
+                if (hasOutput)
+                {
+                    var outputs = ExtractOutput(item.Definition.With, type).Select(output => $"\"{Escape(output)}\"");
+                    sb.AppendLine($"        output = [{string.Join(",", outputs)}]");
+                }
 
                 // Emit args in matrix.
                 if (hasArgs)
@@ -330,6 +342,26 @@ public class DockerHclGenerator
         }
 
         return [];
+    }
+
+    private static IEnumerable<string> ExtractOutput(IReadOnlyDictionary<string, object> with, string type)
+    {
+        if (!with.TryGetValue("output", out var rawOutput))
+        {
+            return type switch
+            {
+                "build" => ["type=cacheonly,mode=max"],
+                "docker" => ["type=docker"],
+                _ => ["type=cacheonly,mode=max", $"type=local,dest=.buildcharts/output/{type}"],
+            };
+        }
+
+        if (rawOutput is not IEnumerable<object> outputs || outputs.Any(output => output is not string))
+        {
+            return [];
+        }
+
+        return outputs.Cast<string>();
     }
 
     private static string FormatArgValue(IReadOnlyDictionary<string, object> args, string key)

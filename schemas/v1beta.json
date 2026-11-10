@@ -98,7 +98,11 @@
           "type": "object",
           "additionalProperties": true,
           "properties": {
-            "contexts": { "$ref": "#/$defs/contextMap" }
+            "contexts": { "$ref": "#/$defs/contextMap" },
+            "output": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
           }
         }
       },
