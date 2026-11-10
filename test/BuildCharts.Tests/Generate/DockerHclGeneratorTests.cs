@@ -339,6 +339,24 @@ public sealed class DockerHclGeneratorTests : TestBase
     }
 
     [TestMethod]
+    [DataRow(null)]
+    [DataRow("type=cacheonly")]
+    [DataRow(42)]
+    public async Task GenerateAsync_ShouldEmitEmptyOutputForInvalidValue(object output)
+    {
+        // Arrange
+        _buildConfig.Targets["src/dotnet-krp/dotnet-krp.csproj"][0].With["output"] = output;
+
+        // Act
+        var result = await Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false);
+
+        // Assert
+        var hcl = result.ToString();
+        StringAssert.Contains(hcl, "  output = item.output");
+        StringAssert.Contains(hcl, "        output = []");
+    }
+
+    [TestMethod]
     public async Task GenerateAsync_ShouldEmitEmptyOutputOverride()
     {
         // Arrange
@@ -588,22 +606,6 @@ public sealed class DockerHclGeneratorTests : TestBase
         var hcl = result.ToString();
         StringAssert.Contains(hcl, "  contexts = {");
         Assert.IsFalse(hcl.Contains("    build = \"target:build\"", StringComparison.Ordinal));
-    }
-
-    [TestMethod]
-    [DataRow(null)]
-    [DataRow("type=cacheonly")]
-    [DataRow(42)]
-    public async Task GenerateAsync_ShouldThrowArgumentExceptionForInvalidOutput(object output)
-    {
-        // Arrange
-        _buildConfig.Targets["src/dotnet-krp/dotnet-krp.csproj"][0].With["output"] = output;
-
-        // Act
-        var result = await Assert.ThrowsAsync<ArgumentException>(() => Sut.GenerateAsync(_buildConfig, _chartConfig, useInlineDockerFile: false));
-
-        // Assert
-        StringAssert.Contains(result.Message, "with.output");
     }
 
     [TestMethod]

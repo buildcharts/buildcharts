@@ -358,7 +358,7 @@ public class DockerHclGenerator
 
         if (rawOutput is not IEnumerable<object> outputs || outputs.Any(output => output is not string))
         {
-            throw new ArgumentException("Target 'with.output' must be an array of strings.");
+            return [];
         }
 
         return outputs.Cast<string>();
