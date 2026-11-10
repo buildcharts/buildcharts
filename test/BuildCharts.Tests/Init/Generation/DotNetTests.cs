@@ -45,6 +45,7 @@ public sealed class DotNetTests : TestBase
     [DataRow("Microsoft.NET.Sdk.Worker", "<!-- <FrameworkReference Include='Microsoft.AspNetCore.App' /> -->", "aspnet")]
     public async Task CreateBuildConfig_ShouldSelectRuntimeImage(string sdk, string references, string image)
     {
+        // Arrange
         File.WriteAllText("src/Example.Worker/Example.Worker.csproj", $"""
             <Project Sdk="{sdk}">
               <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
@@ -52,8 +53,10 @@ public sealed class DotNetTests : TestBase
             </Project>
             """);
 
+        // Act
         var result = await DotNetScaffolder.CreateBuildConfig("build.yml", default);
 
+        // Assert
         var contexts = (Dictionary<string, string>)result["src/Example.Worker/Example.Worker.csproj"].With["contexts"];
         Assert.AreEqual($"docker-image://mcr.microsoft.com/dotnet/{image}:10.0", contexts["base"]);
         CollectionAssert.AreEqual(new[] { "docker" }, result["src/Example.Worker/Example.Worker.csproj"].Types);
@@ -65,6 +68,7 @@ public sealed class DotNetTests : TestBase
     [TestMethod]
     public async Task CreateBuildConfig_ShouldSupportSdkElements()
     {
+        // Arrange
         File.WriteAllText("src/Example.Worker/Example.Worker.csproj", """
             <Project>
               <Sdk Name="Microsoft.NET.Sdk.Worker" />
@@ -72,8 +76,10 @@ public sealed class DotNetTests : TestBase
             </Project>
             """);
 
+        // Act
         var result = await DotNetScaffolder.CreateBuildConfig("build.yml", default);
 
+        // Assert
         var contexts = (Dictionary<string, string>)result["src/Example.Worker/Example.Worker.csproj"].With["contexts"];
         Assert.AreEqual("docker-image://mcr.microsoft.com/dotnet/runtime:10.0", contexts["base"]);
     }
@@ -84,14 +90,17 @@ public sealed class DotNetTests : TestBase
     [DataRow("$(TargetFrameworkVersion)", "10.0")]
     public async Task CreateBuildConfig_ShouldUseProjectRuntimeVersion(string framework, string expectedVersion)
     {
+        // Arrange
         File.WriteAllText("src/Example.Worker/Example.Worker.csproj", $"""
             <Project Sdk="Microsoft.NET.Sdk.Worker">
               <PropertyGroup><TargetFramework>{framework}</TargetFramework></PropertyGroup>
             </Project>
             """);
 
+        // Act
         var result = await DotNetScaffolder.CreateBuildConfig("build.yml", default);
 
+        // Assert
         var contexts = (Dictionary<string, string>)result["src/Example.Worker/Example.Worker.csproj"].With["contexts"];
         Assert.AreEqual($"docker-image://mcr.microsoft.com/dotnet/runtime:{expectedVersion}", contexts["base"]);
         var buildContexts = (Dictionary<string, string>)result["Example.sln"].With["contexts"];
