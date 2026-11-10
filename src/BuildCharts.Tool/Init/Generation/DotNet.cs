@@ -75,9 +75,7 @@ public static class DotNet
 
                 var projectName = Path.GetFileNameWithoutExtension(file).ToLowerInvariant();
                 var runtimeImage = "aspnet";
-                if (content.Contains("Microsoft.NET.Sdk.Worker") &&
-                    !content.Contains("Microsoft.NET.Sdk.Web") &&
-                    !content.Contains("Microsoft.AspNetCore.App"))
+                if (content.Contains("Microsoft.NET.Sdk.Worker") && !content.Contains("Microsoft.NET.Sdk.Web") && !content.Contains("Microsoft.AspNetCore.App"))
                 {
                     runtimeImage = "runtime";
                 }
