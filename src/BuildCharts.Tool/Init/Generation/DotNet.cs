@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -74,15 +76,7 @@ public static class DotNet
                 types.Add("docker");
 
                 var projectName = Path.GetFileNameWithoutExtension(file).ToLowerInvariant();
-                var runtimeImage = "aspnet";
-                if (content.Contains("Microsoft.NET.Sdk.Worker") &&
-                    !content.Contains("Microsoft.NET.Sdk.Web") &&
-                    !content.Contains("Microsoft.AspNetCore.App"))
-                {
-                    runtimeImage = "runtime";
-                }
-                var runtimeVersion = Regex.Match(content, @"<TargetFramework>net(\d+\.\d+)");
-                var runtimeTag = runtimeVersion.Success ? runtimeVersion.Groups[1].Value : sdkVersion;
+                var (runtimeImage, runtimeTag) = await DetectRuntimeAsync(file, ct);
                 with["contexts"] = new Dictionary<string, string>
                 {
                     ["base"] = $"docker-image://mcr.microsoft.com/dotnet/{runtimeImage}:{runtimeTag}",
@@ -154,6 +148,74 @@ public static class DotNet
         await File.WriteAllTextAsync(outputPath, sb.ToString(), ct);
 
         return projectTypeMap;
+    }
+
+    private static async Task<(string Image, string Tag)> DetectRuntimeAsync(string project, CancellationToken ct)
+    {
+        using var evaluation = await EvaluateProjectAsync(project, null, ct);
+        var properties = evaluation.RootElement.GetProperty("Properties");
+        var framework = properties.GetProperty("TargetFramework").GetString();
+        if (string.IsNullOrWhiteSpace(framework))
+        {
+            // A single Docker target uses the first declared framework.
+            framework = properties.GetProperty("TargetFrameworks").GetString()?.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        }
+
+        var version = Regex.Match(framework ?? "", @"^net(\d+\.\d+)(?:-|$)");
+        if (!version.Success)
+        {
+            throw new InvalidOperationException($"Cannot select a .NET runtime image for '{project}' targeting '{framework}'. Specify a supported TargetFramework.");
+        }
+
+        using var targetEvaluation = string.IsNullOrWhiteSpace(properties.GetProperty("TargetFramework").GetString())
+            ? await EvaluateProjectAsync(project, framework, ct)
+            : null;
+        var references = (targetEvaluation ?? evaluation).RootElement.GetProperty("Items").GetProperty("FrameworkReference");
+        var image = references.EnumerateArray().Any(reference => string.Equals(reference.GetProperty("Identity").GetString(), "Microsoft.AspNetCore.App", StringComparison.OrdinalIgnoreCase))
+            ? "aspnet"
+            : "runtime";
+
+        return (image, version.Groups[1].Value);
+    }
+
+    private static async Task<JsonDocument> EvaluateProjectAsync(string project, string framework, CancellationToken ct)
+    {
+        var startInfo = new ProcessStartInfo("dotnet")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        startInfo.ArgumentList.Add("msbuild");
+        startInfo.ArgumentList.Add(project);
+        startInfo.ArgumentList.Add("-nologo");
+        startInfo.ArgumentList.Add("-property:Configuration=Release");
+        startInfo.ArgumentList.Add("-getProperty:TargetFramework,TargetFrameworks");
+        startInfo.ArgumentList.Add("-getItem:FrameworkReference");
+        if (framework != null)
+        {
+            startInfo.ArgumentList.Add($"-property:TargetFramework={framework}");
+        }
+
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start dotnet msbuild.");
+        using var cancellation = ct.Register(() =>
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        });
+        var output = process.StandardOutput.ReadToEndAsync(ct);
+        var error = process.StandardError.ReadToEndAsync(ct);
+        await Task.WhenAll(output, error);
+        await process.WaitForExitAsync(ct);
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Cannot evaluate '{project}': {(await error).Trim()} {(await output).Trim()}");
+        }
+
+        return JsonDocument.Parse(await output);
     }
 
     private static async Task<string> DetectSdkVersion(CancellationToken ct, string[] csprojFiles)

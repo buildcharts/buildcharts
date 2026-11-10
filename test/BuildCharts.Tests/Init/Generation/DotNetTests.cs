@@ -17,7 +17,7 @@ public sealed class DotNetTests : TestBase
         Directory.CreateDirectory(_directory);
         Directory.SetCurrentDirectory(_directory);
         File.WriteAllText("Example.sln", "");
-        File.WriteAllText("global.json", """{"sdk":{"version":"10.0.100"}}""");
+        File.WriteAllText("global.json", """{"sdk":{"version":"10.0.100","rollForward":"latestFeature"}}""");
         Directory.CreateDirectory("src/Example.Worker");
         File.WriteAllText("src/Example.Worker/Example.Worker.csproj", """
             <Project Sdk="Microsoft.NET.Sdk.Worker">
@@ -37,12 +37,54 @@ public sealed class DotNetTests : TestBase
     }
 
     [TestMethod]
+    public async Task CreateBuildConfig_ShouldEvaluateInheritedPropertiesAndReferences()
+    {
+        File.WriteAllText("Directory.Build.props", """
+            <Project>
+              <PropertyGroup>
+                <ApplicationFramework>net8.0</ApplicationFramework>
+                <TargetFramework>$(ApplicationFramework)</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup Condition="'$(Configuration)' == 'Release'">
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
+            </Project>
+            """);
+        File.WriteAllText("src/Example.Worker/Example.Worker.csproj", """<Project Sdk="Microsoft.NET.Sdk.Worker" />""");
+
+        var result = await DotNetScaffolder.CreateBuildConfig("build.yml", default);
+
+        var contexts = (Dictionary<string, string>)result["src/Example.Worker/Example.Worker.csproj"].With["contexts"];
+        Assert.AreEqual("docker-image://mcr.microsoft.com/dotnet/aspnet:8.0", contexts["base"]);
+    }
+
+    [TestMethod]
+    public async Task CreateBuildConfig_ShouldSelectFirstTargetFramework()
+    {
+        File.WriteAllText("src/Example.Worker/Example.Worker.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFrameworks>net8.0;net10.0</TargetFrameworks></PropertyGroup>
+              <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+                <FrameworkReference Include="Microsoft.AspNetCore.App" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        var result = await DotNetScaffolder.CreateBuildConfig("build.yml", default);
+
+        var contexts = (Dictionary<string, string>)result["src/Example.Worker/Example.Worker.csproj"].With["contexts"];
+        Assert.AreEqual("docker-image://mcr.microsoft.com/dotnet/aspnet:8.0", contexts["base"]);
+    }
+
+    [TestMethod]
     [DataRow("Microsoft.NET.Sdk.Worker", "", "runtime")]
     [DataRow("Microsoft.NET.Sdk.Web", "", "aspnet")]
-    [DataRow("Microsoft.NET.Sdk", "", "aspnet")]
+    [DataRow("Microsoft.NET.Sdk", "", "runtime")]
+    [DataRow("Microsoft.NET.Sdk", "<ItemGroup><FrameworkReference Include='Microsoft.AspNetCore.App' /></ItemGroup>", "aspnet")]
     [DataRow("Microsoft.NET.Sdk.Worker", "<ItemGroup><FrameworkReference Include='Microsoft.AspNetCore.App' /></ItemGroup>", "aspnet")]
     [DataRow("Microsoft.NET.Sdk.Worker;Microsoft.NET.Sdk.Web", "", "aspnet")]
-    [DataRow("Microsoft.NET.Sdk.Worker", "<!-- <FrameworkReference Include='Microsoft.AspNetCore.App' /> -->", "aspnet")]
+    [DataRow("Microsoft.NET.Sdk.Worker", "<!-- <FrameworkReference Include='Microsoft.AspNetCore.App' /> -->", "runtime")]
+    [DataRow("Microsoft.NET.Sdk.Worker", "<ItemGroup Condition=\"'$(TargetFramework)' == 'net8.0'\"><FrameworkReference Include='Microsoft.AspNetCore.App' /></ItemGroup>", "runtime")]
     public async Task CreateBuildConfig_ShouldSelectRuntimeImage(string sdk, string references, string image)
     {
         File.WriteAllText("src/Example.Worker/Example.Worker.csproj", $"""
@@ -79,14 +121,34 @@ public sealed class DotNetTests : TestBase
     }
 
     [TestMethod]
+    [DataRow("")]
+    [DataRow("net48")]
+    public async Task CreateBuildConfig_ShouldThrowForUnsupportedTargetFramework(string framework)
+    {
+        File.WriteAllText("src/Example.Worker/Example.Worker.csproj", $"""
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>{framework}</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+
+        var result = await Assert.ThrowsAsync<InvalidOperationException>(() => DotNetScaffolder.CreateBuildConfig("build.yml", default));
+
+        StringAssert.Contains(result.Message, "Cannot select a .NET runtime image");
+        Assert.IsFalse(File.Exists("build.yml"));
+    }
+
+    [TestMethod]
     [DataRow("net8.0", "8.0")]
     [DataRow("net9.0-windows", "9.0")]
-    [DataRow("$(TargetFrameworkVersion)", "10.0")]
+    [DataRow("$(ApplicationFramework)", "8.0")]
     public async Task CreateBuildConfig_ShouldUseProjectRuntimeVersion(string framework, string expectedVersion)
     {
         File.WriteAllText("src/Example.Worker/Example.Worker.csproj", $"""
             <Project Sdk="Microsoft.NET.Sdk.Worker">
-              <PropertyGroup><TargetFramework>{framework}</TargetFramework></PropertyGroup>
+              <PropertyGroup>
+                <ApplicationFramework>net8.0</ApplicationFramework>
+                <TargetFramework>{framework}</TargetFramework>
+              </PropertyGroup>
             </Project>
             """);
 
