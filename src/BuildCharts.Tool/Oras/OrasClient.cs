@@ -32,7 +32,7 @@ public class OrasClient : IOrasClient
             var client = new Client
             {
                 CredentialProvider = await DockerCredentialHelper.GetCredentialAsync(chartReference.Registry),
-                RealmValidator = CreateRealmValidator(new Uri($"https://{chartReference.Registry}")),
+                RealmValidator = CreateRealmValidator(),
             };
 
             var orasRepository = new Repository(new RepositoryOptions
@@ -96,7 +96,7 @@ public class OrasClient : IOrasClient
         var client = new Client
         {
             CredentialProvider = await DockerCredentialHelper.GetCredentialAsync(chartReference.Registry),
-            RealmValidator = CreateRealmValidator(new Uri($"https://{chartReference.Registry}")),
+            RealmValidator = CreateRealmValidator(),
         };
 
         var orasRepository = new Repository(new RepositoryOptions
@@ -112,16 +112,11 @@ public class OrasClient : IOrasClient
         return manifestDescriptor.Digest;
     }
 
-    public static DefaultRealmValidator CreateRealmValidator(Uri registryUri)
+    public static DefaultRealmValidator CreateRealmValidator()
     {
-        if (registryUri.Scheme == Uri.UriSchemeHttps && registryUri.IsDefaultPort &&
-            registryUri.Host.TrimEnd('.') is "registry-1.docker.io" or "docker.io" or "index.docker.io")
+        return new DefaultRealmValidator
         {
-            return new DefaultRealmValidator
-            {
-                TrustedRealmHosts = new HashSet<string> { "auth.docker.io" },
-            };
-        }
-        return new DefaultRealmValidator();
+            TrustedRealmHosts = new HashSet<string> { "auth.docker.io" },
+        };
     }
 }
