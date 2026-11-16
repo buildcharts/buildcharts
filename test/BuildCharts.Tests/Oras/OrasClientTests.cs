@@ -1,13 +1,10 @@
-using AutoFixture;
 using BuildCharts.Tool.Oras;
 
 namespace BuildCharts.Tests.Oras;
 
 [TestClass]
-public sealed class DockerHubRealmValidatorTests : TestBase
+public sealed class OrasClientTests : TestBase
 {
-    private DockerHubRealmValidator Sut => Fixture.Freeze<DockerHubRealmValidator>();
-
     [TestMethod]
     [DataRow("https://registry-1.docker.io")]
     [DataRow("https://docker.io")]
@@ -15,14 +12,14 @@ public sealed class DockerHubRealmValidatorTests : TestBase
     [DataRow("https://REGISTRY-1.DOCKER.IO")]
     [DataRow("https://registry-1.docker.io:443")]
     [DataRow("https://registry-1.docker.io.")]
-    public async Task IsRealmAllowedAsync_ShouldAllowRealm_WhenDockerHubRegistry(string registry)
+    public async Task CreateRealmValidator_ShouldAllowRealm_WhenDockerHubRegistry(string registry)
     {
         // Arrange
         var registryUri = new Uri(registry);
         var realmUri = new Uri("https://auth.docker.io/token");
 
         // Act
-        var result = await Sut.IsRealmAllowedAsync(registryUri, realmUri);
+        var result = await OrasClient.CreateRealmValidator(registryUri).IsRealmAllowedAsync(registryUri, realmUri);
 
         // Assert
         Assert.IsTrue(result);
@@ -32,14 +29,14 @@ public sealed class DockerHubRealmValidatorTests : TestBase
     [DataRow("https://registry.example.com", "https://registry.example.com/token")]
     [DataRow("https://registry.example.com:5443", "https://registry.example.com:5443/token")]
     [DataRow("https://registry-1.docker.io", "https://registry-1.docker.io/token")]
-    public async Task IsRealmAllowedAsync_ShouldAllowRealm_WhenSameRegistry(string registry, string realm)
+    public async Task CreateRealmValidator_ShouldAllowRealm_WhenSameRegistry(string registry, string realm)
     {
         // Arrange
         var registryUri = new Uri(registry);
         var realmUri = new Uri(realm);
 
         // Act
-        var result = await Sut.IsRealmAllowedAsync(registryUri, realmUri);
+        var result = await OrasClient.CreateRealmValidator(registryUri).IsRealmAllowedAsync(registryUri, realmUri);
 
         // Assert
         Assert.IsTrue(result);
@@ -50,14 +47,14 @@ public sealed class DockerHubRealmValidatorTests : TestBase
     [DataRow("https://registry-1.docker.io.example.com")]
     [DataRow("https://registry-1.docker.io:5443")]
     [DataRow("http://registry-1.docker.io")]
-    public async Task IsRealmAllowedAsync_ShouldRejectRealm_WhenDifferentRegistry(string registry)
+    public async Task CreateRealmValidator_ShouldRejectRealm_WhenDifferentRegistry(string registry)
     {
         // Arrange
         var registryUri = new Uri(registry);
         var realmUri = new Uri("https://auth.docker.io/token");
 
         // Act
-        var result = await Sut.IsRealmAllowedAsync(registryUri, realmUri);
+        var result = await OrasClient.CreateRealmValidator(registryUri).IsRealmAllowedAsync(registryUri, realmUri);
 
         // Assert
         Assert.IsFalse(result);
@@ -70,14 +67,14 @@ public sealed class DockerHubRealmValidatorTests : TestBase
     [DataRow("https://unrelated.example/token")]
     [DataRow("https://auth.docker.io.example.com/token")]
     [DataRow("file:///token")]
-    public async Task IsRealmAllowedAsync_ShouldRejectRealm_WhenUnsafeDockerHubRealm(string realm)
+    public async Task CreateRealmValidator_ShouldRejectRealm_WhenUnsafeDockerHubRealm(string realm)
     {
         // Arrange
         var registryUri = new Uri("https://registry-1.docker.io");
         var realmUri = new Uri(realm);
 
         // Act
-        var result = await Sut.IsRealmAllowedAsync(registryUri, realmUri);
+        var result = await OrasClient.CreateRealmValidator(registryUri).IsRealmAllowedAsync(registryUri, realmUri);
 
         // Assert
         Assert.IsFalse(result);
