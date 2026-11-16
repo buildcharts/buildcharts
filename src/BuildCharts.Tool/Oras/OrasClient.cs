@@ -32,6 +32,7 @@ public class OrasClient : IOrasClient
             var client = new Client
             {
                 CredentialProvider = await DockerCredentialHelper.GetCredentialAsync(chartReference.Registry),
+                RealmValidator = new DockerHubRealmValidator(),
             };
 
             var orasRepository = new Repository(new RepositoryOptions
@@ -95,6 +96,7 @@ public class OrasClient : IOrasClient
         var client = new Client
         {
             CredentialProvider = await DockerCredentialHelper.GetCredentialAsync(chartReference.Registry),
+            RealmValidator = new DockerHubRealmValidator(),
         };
 
         var orasRepository = new Repository(new RepositoryOptions
