@@ -10,6 +10,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -24,6 +26,7 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
     private const string CONTAINER_NAME = "buildcharts-dind";
     private const string CONTAINER_IMAGE = "docker:27-dind";
     private string _containerIp;
+    private string _hostGatewayIp;
 
     public async Task OnBeforeGenerateAsync(BuildConfig buildConfig, CancellationToken ct)
     {
@@ -61,6 +64,7 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
                 WriteValueToFile("container_debuginfo.json", JsonSerializer.Serialize(container, new JsonSerializerOptions { WriteIndented = true }));
                 Console.WriteLine("Successfully started buildcharts-dind container");
             }
+            _hostGatewayIp = await GetHostGatewayAsync(ct);
         }
         catch (Exception ex)
         {
@@ -71,8 +75,37 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
 
     public Task OnAfterGenerateAsync(BuildConfig buildConfig, ChartConfig cartConfig, StringBuilder hclStringBuilder, CancellationToken ct)
     {
-        BakeHclHelper.AddExtraHosts(hclStringBuilder, _containerIp);
+        BakeHclHelper.AddExtraHosts(hclStringBuilder, _containerIp, _hostGatewayIp);
         return Task.CompletedTask;
+    }
+
+    private static async Task<string> GetHostGatewayAsync(CancellationToken ct)
+    {
+        // Buildx's docker-container driver cannot resolve host-gateway in extra-hosts, so pass a literal IP instead.
+        // Resolve it through Docker Engine to preserve Docker Desktop and custom daemon gateway settings.
+        await using var probe = new ContainerBuilder(CONTAINER_IMAGE)
+            .WithEntrypoint("sleep")
+            .WithCommand("infinity")
+            .WithExtraHost("host.docker.internal", "host-gateway")
+            .WithAutoRemove(true)
+            .WithCleanUp(false)
+            .Build();
+
+        await probe.StartAsync(ct);
+
+        var result = await probe.ExecAsync(["cat", "/etc/hosts"], ct);
+        var addresses = result.Stdout.Split('\n')
+            .Select(line => line.Split((char[])null, StringSplitOptions.RemoveEmptyEntries))
+            .Where(fields => fields.Skip(1).Contains("host.docker.internal"))
+            .Select(fields => IPAddress.Parse(fields[0])).ToArray();
+
+        var address = addresses.FirstOrDefault(value => value.AddressFamily == AddressFamily.InterNetwork) ?? addresses.FirstOrDefault();
+        if (result.ExitCode != 0 || address == null)
+        {
+            throw new InvalidOperationException("Could not resolve the Docker host gateway.");
+        }
+
+        return address.ToString();
     }
     
     private void WriteValueToFile(string key, string value)

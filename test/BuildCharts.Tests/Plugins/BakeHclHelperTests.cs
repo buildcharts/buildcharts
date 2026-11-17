@@ -18,7 +18,7 @@ public sealed class BakeHclHelperTests : TestBase
             BakeHclHelper.AddSecret(builder, "type=env,id=custom");
         }
 
-        BakeHclHelper.AddExtraHosts(builder, "172.18.0.2");
+        BakeHclHelper.AddExtraHosts(builder, "172.18.0.2", "172.18.0.1");
         if (!secretFirst)
         {
             BakeHclHelper.AddSecret(builder, "type=env,id=custom");
@@ -26,23 +26,43 @@ public sealed class BakeHclHelperTests : TestBase
         var result = builder.ToString();
 
         Assert.AreEqual(1, result.Split("TESTCONTAINERS_HOST_OVERRIDE = \"172.18.0.2\"").Length - 1);
-        Assert.AreEqual(1, result.Split("\"host.docker.internal\" = \"host-gateway\"").Length - 1);
+        Assert.AreEqual(1, result.Split("DOCKER_HOST = \"tcp://172.18.0.2:2375\"").Length - 1);
+        Assert.AreEqual(1, result.Split("\"host.docker.internal\" = \"172.18.0.1\"").Length - 1);
         Assert.AreEqual(1, result.Split("\"type=env,id=custom\"").Length - 1);
         StringAssert.Contains(result, "VALUE = \"} [\"");
         StringAssert.EndsWith(result, "}\ntarget \"other\" {}\n");
     }
 
     [TestMethod]
-    public void AddExtraHosts_ShouldPreserveExistingOverride()
+    [DataRow("DOCKER_HOST", "tcp://existing:2375")]
+    [DataRow("TESTCONTAINERS_HOST_OVERRIDE", "existing")]
+    public void AddExtraHosts_ShouldPreserveExistingOverride(string name, string value)
     {
-        var builder = new StringBuilder("target \"test\" {\n  args = {\n    TESTCONTAINERS_HOST_OVERRIDE = \"existing\"\n  }\n}\n");
+        var builder = new StringBuilder($"target \"test\" {{\n  args = {{\n    {name} = \"{value}\"\n  }}\n}}\n");
 
-        BakeHclHelper.AddExtraHosts(builder, "172.18.0.2");
+        BakeHclHelper.AddExtraHosts(builder, "172.18.0.2", "172.18.0.1");
         var result = builder.ToString();
 
-        Assert.AreEqual(1, result.Split("TESTCONTAINERS_HOST_OVERRIDE").Length - 1);
-        StringAssert.Contains(result, "TESTCONTAINERS_HOST_OVERRIDE = \"existing\"");
-        StringAssert.Contains(result, "\"host.docker.internal\" = \"host-gateway\"");
+        Assert.AreEqual(1, result.Split($"{name} =").Length - 1);
+        StringAssert.Contains(result, $"{name} = \"{value}\"");
+        StringAssert.Contains(result, "\"host.docker.internal\" = \"172.18.0.1\"");
+    }
+
+    [TestMethod]
+    [DataRow("172.18.0.2", "172.18.0.1", "tcp://172.18.0.2:2375")]
+    [DataRow("172.22.0.17", "192.168.65.254", "tcp://172.22.0.17:2375")]
+    [DataRow("fd00::2", "fd00::1", "tcp://[fd00::2]:2375")]
+    public void AddExtraHosts_ShouldSeparateDaemonAndHostAddresses(string containerAddress, string gatewayAddress, string dockerHost)
+    {
+        var builder = new StringBuilder("target \"test\" {\n  args = {}\n}\n");
+
+        BakeHclHelper.AddExtraHosts(builder, containerAddress, gatewayAddress);
+        var result = builder.ToString();
+
+        StringAssert.Contains(result, $"DOCKER_HOST = \"{dockerHost}\"");
+        StringAssert.Contains(result, $"TESTCONTAINERS_HOST_OVERRIDE = \"{containerAddress}\"");
+        StringAssert.Contains(result, $"\"host.docker.internal\" = \"{gatewayAddress}\"");
+        Assert.IsFalse(result.Contains("host-gateway", StringComparison.Ordinal));
     }
 
     [TestMethod]
@@ -51,7 +71,7 @@ public sealed class BakeHclHelperTests : TestBase
         var text = "target \"_common\" {}\n";
         var builder = new StringBuilder(text);
 
-        BakeHclHelper.AddExtraHosts(builder, "172.18.0.2");
+        BakeHclHelper.AddExtraHosts(builder, "172.18.0.2", "172.18.0.1");
         var result = builder.ToString();
 
         Assert.AreEqual(text, result);

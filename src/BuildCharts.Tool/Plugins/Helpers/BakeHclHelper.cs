@@ -7,18 +7,13 @@ namespace BuildCharts.Tool.Plugins.Helpers;
 public static class BakeHclHelper
 {
     private const string TARGET_MARKER = "target \"test\"";
-    private const string EXTRA_HOSTS_SNIPPET =
-        "  extra-hosts = {\n" +
-        "    \"host.docker.internal\" = \"host-gateway\"\n" +
-        "  }\n";
 
     /// <summary>
-    /// Ensures TESTCONTAINERS_HOST_OVERRIDE in args of target "test"
-    /// and ensures extra-hosts = { "host.docker.internal" = "host-gateway" } exists,
-    /// using a snippet-based insertion similar to SECRET_SNIPPET.
+    /// Ensures DOCKER_HOST and TESTCONTAINERS_HOST_OVERRIDE in args of target "test"
+    /// and maps host.docker.internal to the detected Docker host gateway IP.
     /// Modifies the supplied StringBuilder in place.
     /// </summary>
-    public static void AddExtraHosts(StringBuilder sb, string testcontainersHostOverride)
+    public static void AddExtraHosts(StringBuilder sb, string testcontainersHostOverride, string hostGatewayIp)
     {
         if (sb == null)
         {
@@ -55,7 +50,7 @@ public static class BakeHclHelper
         // Snapshot just the target body for searches
         var body = sb.ToString(blockStart, blockEnd - blockStart);
 
-        // ---- A) Ensure TESTCONTAINERS_HOST_OVERRIDE inside existing args = { ... } ----
+        // ---- A) Ensure Docker and Testcontainers arguments inside args = { ... } ----
         var argsMatch = Regex.Match(body, @"(?m)^\s*args\s*=\s*\{");
         if (!argsMatch.Success)
         {
@@ -76,25 +71,27 @@ public static class BakeHclHelper
             throw new InvalidOperationException("Malformed HCL: unmatched braces in args block.");
         }
 
-        // If not present, insert before args' closing brace, respecting indentation a bit
         var argsInner = sb.ToString(argsOpenBrace + 1, argsCloseBrace - argsOpenBrace - 1);
-        var alreadyHasOverride = Regex.IsMatch(argsInner, @"(?m)^\s*TESTCONTAINERS_HOST_OVERRIDE\s*=", RegexOptions.CultureInvariant);
-        if (!alreadyHasOverride)
+        // Connect to DinD directly without changing where host.docker.internal points.
+        var dockerHost = new UriBuilder("tcp", testcontainersHostOverride, 2375).Uri.GetLeftPart(UriPartial.Authority);
+        var arguments = new StringBuilder();
+        foreach (var (name, value) in new[]
         {
-            // Try to keep indentation roughly aligned with args entries
-            var indent = "  ";
-
-            sb.Insert(argsCloseBrace, $"{indent}TESTCONTAINERS_HOST_OVERRIDE = \"{testcontainersHostOverride}\"\n{indent}");
-
-            // Adjust indices after insertion
-            var delta = ($"{indent}TESTCONTAINERS_HOST_OVERRIDE = \"{testcontainersHostOverride}\"\n{indent}").Length;
-            if (argsCloseBrace < blockEnd)
+            ("DOCKER_HOST", dockerHost),
+            ("TESTCONTAINERS_HOST_OVERRIDE", testcontainersHostOverride)
+        })
+        {
+            // Preserve an existing override for either argument; add only missing values.
+            if (!Regex.IsMatch(argsInner, $@"(?m)^\s*{name}\s*=", RegexOptions.CultureInvariant))
             {
-                blockEnd += delta;
+                arguments.Append($"  {name} = \"{value}\"\n  ");
             }
         }
+        // Account for inserted arguments so extra-hosts stays inside the test target.
+        sb.Insert(argsCloseBrace, arguments);
+        blockEnd += arguments.Length;
 
-        // ---- B) EXTRA-HOSTS using a fixed snippet (SECRET_SNIPPET style) ----
+        // ---- B) Preserve host access separately from the DinD connection ----
         // If there's already any "extra-hosts =" attribute in this target, fail (same behavior as your secret snippet).
         if (body.IndexOf("extra-hosts =", StringComparison.OrdinalIgnoreCase) >= 0)
         {
@@ -102,7 +99,9 @@ public static class BakeHclHelper
         }
 
         // 5) Insert new extra hosts before the closing brace
-        sb.Insert(blockEnd, EXTRA_HOSTS_SNIPPET);
+        sb.Insert(blockEnd, "  extra-hosts = {\n" +
+            $"    \"host.docker.internal\" = \"{hostGatewayIp}\"\n" +
+            "  }\n");
     }
 
     /// <summary>
