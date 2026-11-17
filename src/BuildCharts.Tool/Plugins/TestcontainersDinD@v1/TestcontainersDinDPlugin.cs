@@ -32,9 +32,11 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
     {
         try
         {
+            string containerId;
             var runningContainer = await IfAlreadyExistsAndSameImageOtherwiseKill(ct);
             if (runningContainer is not null)
             {
+                containerId = runningContainer.ID;
                 _containerIp = runningContainer.NetworkSettings.Networks.First().Value.IPAddress;
                 Console.WriteLine($"Successfully started buildcharts-dind container (already running with status: {runningContainer.Status})");
             }
@@ -44,6 +46,7 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
 
                 var builder = new ContainerBuilder(image)
                     .WithName(CONTAINER_NAME)
+                    .WithExtraHost("host.docker.internal", "host-gateway")
                     .WithPrivileged(true)
                     .WithPortBinding(2375, 2375)
                     .WithEnvironment("DOCKER_TLS_CERTDIR", "")
@@ -59,12 +62,13 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
                 var container = builder.Build();
                 await container.StartAsync(ct);
 
+                containerId = container.Id;
                 _containerIp = container.IpAddress;
 
                 WriteValueToFile("container_debuginfo.json", JsonSerializer.Serialize(container, new JsonSerializerOptions { WriteIndented = true }));
                 Console.WriteLine("Successfully started buildcharts-dind container");
             }
-            _hostGatewayIp = await GetHostGatewayAsync(ct);
+            _hostGatewayIp = await GetHostGatewayAsync(containerId, ct);
         }
         catch (Exception ex)
         {
@@ -79,28 +83,28 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
         return Task.CompletedTask;
     }
 
-    private static async Task<string> GetHostGatewayAsync(CancellationToken ct)
+    private static async Task<string> GetHostGatewayAsync(string containerId, CancellationToken ct)
     {
         // Buildx's docker-container driver cannot resolve host-gateway in extra-hosts, so pass a literal IP instead.
-        // Resolve it through Docker Engine to preserve Docker Desktop and custom daemon gateway settings.
-        await using var probe = new ContainerBuilder(CONTAINER_IMAGE)
-            .WithEntrypoint("sleep")
-            .WithCommand("infinity")
-            .WithExtraHost("host.docker.internal", "host-gateway")
-            .WithAutoRemove(true)
-            .WithCleanUp(false)
-            .Build();
-
-        await probe.StartAsync(ct);
-
-        var result = await probe.ExecAsync(["cat", "/etc/hosts"], ct);
-        var addresses = result.Stdout.Split('\n')
+        // Read Docker Engine's resolved mapping from DinD to avoid starting a separate probe container.
+        var dockerEndpoint = TestcontainersSettings.OS.DockerEndpointAuthConfig.Endpoint;
+        using var client = new DockerClientBuilder().WithEndpoint(dockerEndpoint).Build();
+        var exec = await client.Exec.CreateContainerExecAsync(containerId, new ContainerExecCreateParameters
+        {
+            AttachStdout = true,
+            AttachStderr = true,
+            Cmd = ["cat", "/etc/hosts"],
+        }, ct);
+        using var stream = await client.Exec.StartContainerExecAsync(exec.ID, new ContainerExecStartParameters { Detach = false }, ct);
+        var (stdout, _) = await stream.ReadOutputToEndAsync(ct);
+        var inspection = await client.Exec.InspectContainerExecAsync(exec.ID, ct);
+        var addresses = stdout.Split('\n')
             .Select(line => line.Split((char[])null, StringSplitOptions.RemoveEmptyEntries))
             .Where(fields => fields.Skip(1).Contains("host.docker.internal"))
             .Select(fields => IPAddress.Parse(fields[0])).ToArray();
 
         var address = addresses.FirstOrDefault(value => value.AddressFamily == AddressFamily.InterNetwork) ?? addresses.FirstOrDefault();
-        if (result.ExitCode != 0 || address == null)
+        if (inspection.ExitCode != 0 || address == null)
         {
             throw new InvalidOperationException("Could not resolve the Docker host gateway.");
         }
@@ -137,11 +141,15 @@ public sealed class TestcontainersDinDPlugin : IBuildChartsPlugin
             },
         }, ct);
 
-        // If a buildcharts-dind container with the desired image exists, do nothing.
+        // Reuse DinD only when it also has the gateway mapping. Older containers must be recreated once.
         var alreadyRunningWithImage = list.FirstOrDefault(x => x.Names.Contains("/buildcharts-dind") && string.Equals(x.Image, CONTAINER_IMAGE, StringComparison.OrdinalIgnoreCase));
         if (alreadyRunningWithImage?.State == "running")
         {
-            return alreadyRunningWithImage;
+            var inspection = await client.Containers.InspectContainerAsync(alreadyRunningWithImage.ID, ct);
+            if (inspection.HostConfig.ExtraHosts?.Contains("host.docker.internal:host-gateway") == true)
+            {
+                return alreadyRunningWithImage;
+            }
         }
 
         // Otherwise, stop/remove all containers that match by name.
