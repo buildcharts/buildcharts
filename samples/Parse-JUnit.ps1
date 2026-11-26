@@ -4,9 +4,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$reports = @(Get-ChildItem -Path $TestOutputDirectory -Recurse -Filter junit.xml -File)
+$reports = @(Get-ChildItem -Path $TestOutputDirectory -Recurse -Filter *.xml -File |
+  Where-Object { $_.Name -eq "junit.xml" -or $_.Name -like "TEST-*.xml" })
 if ($reports.Count -eq 0) {
-  throw "No junit.xml file found under $TestOutputDirectory"
+  throw "No JUnit reports found under $TestOutputDirectory"
 }
 
 $results = @(

@@ -118,6 +118,7 @@ public class NpmAuthenticatePlugin : IBuildChartsPlugin
             Directory.CreateDirectory(Path.GetDirectoryName(secretPath));
             File.Copy(workingFile, secretPath);
         }
+
         BakeHclHelper.AddSecret(hclStringBuilder, "type=file,id=npmrc,src=.buildcharts/secrets/npmrc");
         return Task.CompletedTask;
     }
@@ -173,7 +174,7 @@ public class NpmAuthenticatePlugin : IBuildChartsPlugin
         }
         if (!file.Name.EndsWith(".npmrc", StringComparison.OrdinalIgnoreCase) || file.LinkTarget != null)
         {
-            throw new InvalidOperationException("NpmAuthenticate requires a regular .npmrc file.");
+            throw new InvalidOperationException($"NpmAuthenticate requires a {file.Name} file.");
         }
 
         var lines = (await File.ReadAllTextAsync(file.FullName, ct)).Replace("\r\n", "\n").Split('\n').ToList();
@@ -215,13 +216,17 @@ public class NpmAuthenticatePlugin : IBuildChartsPlugin
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var line in lines.Select(line => line.Trim()).Where(line => line.StartsWith(prefix, StringComparison.Ordinal)))
         {
-            var separator = line.IndexOf('=', prefix.Length);
-            if (separator >= 0)
+            var pair = line[prefix.Length..].Split('=', 2);
+            if (pair.Length == 2)
             {
-                values[line[prefix.Length..separator].Trim()] = line[(separator + 1)..].Trim().Trim('"', '\'');
+                values[pair[0].Trim()] = pair[1].Trim().Trim('"', '\'');
             }
         }
-        return !string.IsNullOrWhiteSpace(values.GetValueOrDefault("_authToken")) || !string.IsNullOrWhiteSpace(values.GetValueOrDefault("_auth")) || (!string.IsNullOrWhiteSpace(values.GetValueOrDefault("username")) && !string.IsNullOrWhiteSpace(values.GetValueOrDefault("_password")));
+
+        return !string.IsNullOrWhiteSpace(values.GetValueOrDefault("_authToken"))
+            || !string.IsNullOrWhiteSpace(values.GetValueOrDefault("_auth"))
+            || (!string.IsNullOrWhiteSpace(values.GetValueOrDefault("username"))
+                && !string.IsNullOrWhiteSpace(values.GetValueOrDefault("_password")));
     }
 
     private static void WriteCredentials(List<string> lines, Uri source, string username, string token)

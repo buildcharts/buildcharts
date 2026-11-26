@@ -1,0 +1,16 @@
+apiVersion: v2
+name: buildcharts
+version: 0.0.1
+description: A meta-chart to define build pipeline targets and templates
+type: application
+
+dependencies:
+  - name: java-build
+    alias: build
+    version: 0.0.1
+    repository: oci://registry-1.docker.io/buildcharts
+
+  - name: java-maven
+    alias: maven
+    version: 0.0.1
+    repository: oci://registry-1.docker.io/buildcharts

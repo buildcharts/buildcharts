@@ -1,0 +1,5 @@
+.buildcharts
+.git
+.mvn/settings.xml
+**/target
+**/.flattened-pom.xml

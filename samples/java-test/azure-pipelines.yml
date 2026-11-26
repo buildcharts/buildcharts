@@ -1,0 +1,38 @@
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: UseDotNet@2
+    inputs:
+      packageType: sdk
+      version: '10.x'
+
+  - bash: |
+      set -eu
+      dotnet run --no-launch-profile --project ../../src/BuildCharts.Tool -- generate
+      docker buildx bake --file .buildcharts/docker-bake.hcl
+    displayName: Build and test Java
+    workingDirectory: '$(Build.SourcesDirectory)/samples/java-test'
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+  - task: PublishTestResults@2
+    displayName: Publish JUnit test results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: JUnit
+      searchFolder: '$(Build.SourcesDirectory)/samples/java-test/.buildcharts/output/test'
+      testResultsFiles: '**/TEST-*.xml'
+      failTaskOnFailedTests: true
+      failTaskOnMissingResultsFile: true
+
+  - task: PublishCodeCoverageResults@2
+    displayName: Publish Cobertura coverage
+    condition: succeededOrFailed()
+    inputs:
+      summaryFileLocation: '$(Build.SourcesDirectory)/samples/java-test/.buildcharts/output/test/**/coverage.cobertura.xml'
+      pathToSources: '$(Build.SourcesDirectory)/samples/java-test'
+      failIfCoverageEmpty: true

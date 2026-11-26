@@ -1,0 +1,16 @@
+version: v1beta
+
+plugins:
+  - MavenAuthenticate@v1
+
+variables:
+  - VERSION
+  - AZURE_PIPELINES_SOURCE_ROOT: '$(Build.SourcesDirectory)/samples/java-test'
+
+targets:
+  pom.xml:
+    - type: build
+      with:
+        contexts:
+          base: docker-image://maven:3.9.11-eclipse-temurin-21
+    - type: test

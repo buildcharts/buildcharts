@@ -1,0 +1,16 @@
+version: v1beta
+
+plugins:
+  - MavenAuthenticate@v1
+
+variables:
+  - VERSION
+  - COMMIT
+
+targets:
+  pom.xml:
+    - type: build
+      with:
+        contexts:
+          base: docker-image://maven:3.9.11-eclipse-temurin-21
+    - type: maven

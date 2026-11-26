@@ -8,6 +8,43 @@ namespace BuildCharts.Tests.Configuration;
 public sealed class BuildConfigTests : TestBase
 {
     [TestMethod]
+    [DoNotParallelize]
+    [DataRow("/agent/work/1/s", "/agent/work/1/s/samples/java-test")]
+    [DataRow(null, "")]
+    public async Task ReadBuildConfigAsync_ShouldExpandAzureSourcesDirectory(string sourceDirectory, string expected)
+    {
+        // Arrange
+        const string yaml = """
+            variables:
+              - VERSION: "1.0.0"
+              - AZURE_PIPELINES_SOURCE_ROOT: '$(Build.SourcesDirectory)/samples/java-test'
+            """;
+        var originalDirectory = Directory.GetCurrentDirectory();
+        var originalSourceDirectory = Environment.GetEnvironmentVariable("BUILD_SOURCESDIRECTORY");
+        var directory = Directory.CreateTempSubdirectory("buildcharts-config-tests-");
+        try
+        {
+            Directory.SetCurrentDirectory(directory.FullName);
+            Environment.SetEnvironmentVariable("BUILD_SOURCESDIRECTORY", sourceDirectory);
+            await File.WriteAllTextAsync(ConfigurationManager.BUILD_CONFIG_PATH, yaml);
+
+            // Act
+            var result = await ConfigurationManager.ReadBuildConfigAsync(default);
+
+            // Assert
+            Assert.AreEqual(yaml, result.Item1);
+            Assert.AreEqual(expected, result.Item2.Variables["AZURE_PIPELINES_SOURCE_ROOT"].Default);
+            Assert.AreEqual("1.0.0", result.Item2.Variables["VERSION"].Default);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalDirectory);
+            Environment.SetEnvironmentVariable("BUILD_SOURCESDIRECTORY", originalSourceDirectory);
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [TestMethod]
     public void ReadBuildConfigAsync_ShouldParseScalarTargetType()
     {
         // Arrange

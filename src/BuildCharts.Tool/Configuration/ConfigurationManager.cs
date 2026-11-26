@@ -1,5 +1,6 @@
 ﻿using BuildCharts.Tool.Configuration.Models;
 using BuildCharts.Tool.Configuration.YamlTypeConverters;
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +32,17 @@ public static class ConfigurationManager
     {
         var yaml = await File.ReadAllTextAsync(BUILD_CONFIG_PATH, ct);
         var config = Deserializer.Deserialize<BuildConfig>(yaml) ?? new BuildConfig();
+        const string sourceDirectoryMacro = "$(Build.SourcesDirectory)";
+        var sourceDirectory = Environment.GetEnvironmentVariable("BUILD_SOURCESDIRECTORY")?.Replace("${", "$${").Replace("%{", "%%{");
+        foreach (var variable in config.Variables.Values)
+        {
+            if (variable.Default.Contains(sourceDirectoryMacro, StringComparison.OrdinalIgnoreCase))
+            {
+                variable.Default = string.IsNullOrEmpty(sourceDirectory)
+                    ? string.Empty
+                    : variable.Default.Replace(sourceDirectoryMacro, sourceDirectory, StringComparison.OrdinalIgnoreCase);
+            }
+        }
 
         return (yaml, config);
     }
