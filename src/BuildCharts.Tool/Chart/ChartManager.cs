@@ -34,7 +34,7 @@ public class ChartManager
         }
 
         var results = new ConcurrentBag<(ChartReference, string)>();
-        var digestMismatches = false;
+        var digestMismatches = 0;
 
         await Parallel.ForEachAsync(chartConfig.Dependencies, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount, chartConfig.Dependencies.Count), CancellationToken = ct }, async (dependency, cancellationToken) =>
         {
@@ -54,33 +54,43 @@ public class ChartManager
             // Folder to cache charts digest.
             Directory.CreateDirectory(_options.CachePath);
 
+            var lockEntry = useLockFile && !updateChartLockFile
+                ? FindChartLockDependencyForCache(chartLock, chartReference)
+                : null;
+
+            if (lockEntry != null)
+            {
+                if (string.IsNullOrWhiteSpace(lockEntry.Digest))
+                {
+                    Console.Error.WriteLine($"Digest mismatch for {chartReference.ChartName}@{chartReference.Tag}: Chart.lock=NULL");
+                    Interlocked.Exchange(ref digestMismatches, 1);
+                    return;
+                }
+
+                var lockedDigestReference = $"{chartReference.Registry}/{chartReference.RepositoryPath}@{lockEntry.Digest}";
+                if (TryGetBlobCacheForDigest(lockedDigestReference, _options.CachePath, out var lockedCachedBlobFilePath))
+                {
+                    await ExtractCachedArchiveAsync(chartReference, lockEntry.Digest, lockedCachedBlobFilePath, outputDir);
+                    results.Add((chartReference, lockEntry.Digest));
+                    return;
+                }
+            }
+
             // Resolve registry digest to detect new digest and assume version immutability.
             var digest = await _orasClient.GetManifestDigestAsync(chartReference, cancellationToken);
             var digestReference = $"{chartReference.Registry}/{chartReference.RepositoryPath}@{digest}";
 
-            if (useLockFile)
+            if (lockEntry != null && !string.Equals(lockEntry.Digest, digest, StringComparison.OrdinalIgnoreCase))
             {
-                // Verify digest in lock file and registry.
-                var lockEntry = FindChartLockDependencyForCache(chartLock, chartReference);
-                if (lockEntry != null && (string.IsNullOrWhiteSpace(lockEntry.Digest) || !string.Equals(lockEntry.Digest, digest, StringComparison.OrdinalIgnoreCase)))
-                {
-                    Console.Error.WriteLine($"Digest mismatch for {chartReference.ChartName}@{chartReference.Tag}: Chart.lock={lockEntry?.Digest ?? "NULL"}, registry={digest}");
-                    digestMismatches = true;
-                    return;
-                }
+                Console.Error.WriteLine($"Digest mismatch for {chartReference.ChartName}@{chartReference.Tag}: Chart.lock={lockEntry.Digest}, registry={digest}");
+                Interlocked.Exchange(ref digestMismatches, 1);
+                return;
             }
-            
+
             var cacheHit = TryGetBlobCacheForDigest(digestReference, _options.CachePath, out var cachedBlobFilePath);
             if (cacheHit)
             {
-                Console.WriteLine($"Pulled: {chartReference.Registry}/{chartReference.RepositoryPath}:{chartReference.Tag} ({new FileInfo(cachedBlobFilePath).Length} bytes) (cached)");
-                Console.WriteLine($"Digest: {digest} (cached)");
-
-                // Untar the chart to output directory.
-                await using var tgzStream = File.OpenRead(cachedBlobFilePath);
-                await using var gzipStream = new GZipInputStream(tgzStream);
-                using var tarArchive = TarArchive.CreateInputTarArchive(gzipStream, Encoding.UTF8);
-                tarArchive.ExtractContents(outputDir);
+                await ExtractCachedArchiveAsync(chartReference, digest, cachedBlobFilePath, outputDir);
             }
             else
             {
@@ -90,7 +100,7 @@ public class ChartManager
             results.Add((chartReference, digest));
         });
 
-        if (digestMismatches)
+        if (Volatile.Read(ref digestMismatches) != 0)
         {
             throw new InvalidOperationException("Chart.lock is out of sync (digest mismatch). Run `buildcharts update` to refresh.");
         }
@@ -123,6 +133,18 @@ public class ChartManager
         }
 
         return true;
+    }
+
+    private static async Task ExtractCachedArchiveAsync(ChartReference chartReference, string digest, string cachedBlobFilePath, string outputDir)
+    {
+        Console.WriteLine($"Pulled: {chartReference.Registry}/{chartReference.RepositoryPath}:{chartReference.Tag} ({new FileInfo(cachedBlobFilePath).Length} bytes) (cached)");
+        Console.WriteLine($"Digest: {digest} (cached)");
+
+        // Untar the chart to output directory.
+        await using var tgzStream = File.OpenRead(cachedBlobFilePath);
+        await using var gzipStream = new GZipInputStream(tgzStream);
+        using var tarArchive = TarArchive.CreateInputTarArchive(gzipStream, Encoding.UTF8);
+        tarArchive.ExtractContents(outputDir);
     }
 
     private static ChartLockDependency FindChartLockDependencyForCache(ChartLock chartLock, ChartReference chartReference)

@@ -170,6 +170,40 @@ public class ChartManagerTests : TestBase
     }
 
     [TestMethod]
+    public async Task UpdateAsync_ShouldNotCallOras_WhenLockedCacheHit()
+    {
+        // Arrange
+        var expectedCacheRoot = Path.Combine(_outputDir, "cache");
+
+        Fixture.Inject(Options.Create(new ChartOptions
+        {
+            CachePath = expectedCacheRoot,
+        }));
+
+        _chartLock.Dependencies =
+        [
+            new ChartLockDependency
+            {
+                Name = _chartName,
+                Version = "0.0.1",
+                Repository = $"oci://registry-1.docker.io/buildcharts/{_chartName}",
+                Digest = _manifestDigest,
+            },
+        ];
+
+        ChartReference.TryParse($"registry-1.docker.io/buildcharts/{_chartName}@{_manifestDigest}", out var digestChartReference);
+        _cacheArchivePath = Path.Combine(expectedCacheRoot, digestChartReference.Filename);
+        CreateValidCachedChartArchive(_cacheArchivePath);
+
+        // Act
+        await Sut.UpdateAsync(_chartConfig, _chartLock, outputDir: _outputDir, useLockFile: true, updateChartLockFile: false);
+
+        // Assert
+        Assert.IsTrue(File.Exists(Path.Combine(_outputDir, "chart", "Chart.yaml")));
+        OrasClientMock.VerifyNoOtherCalls();
+    }
+
+    [TestMethod]
     public async Task UpdateAsync_ShouldNotCallPull_WhenCacheHit()
     {
         // Arrange
@@ -259,6 +293,37 @@ public class ChartManagerTests : TestBase
     }
 
     [TestMethod]
+    public void UpdateAsync_ShouldThrowInvalidOperation_WhenLockDigestEmpty()
+    {
+        // Arrange
+        var expectedCacheRoot = Path.Combine(_outputDir, "cache");
+
+        Fixture.Inject(Options.Create(new ChartOptions
+        {
+            CachePath = expectedCacheRoot,
+        }));
+
+        _chartLock.Dependencies =
+        [
+            new ChartLockDependency
+            {
+                Name = _chartName,
+                Version = "0.0.1",
+                Repository = $"oci://registry-1.docker.io/buildcharts/{_chartName}",
+                Digest = " ",
+            },
+        ];
+
+        // Act
+        Action action = () => Sut.UpdateAsync(_chartConfig, _chartLock, outputDir: _outputDir, useLockFile: true, updateChartLockFile: false).GetAwaiter().GetResult();
+        var result = Assert.Throws<InvalidOperationException>(action);
+
+        // Assert
+        StringAssert.Contains(result.Message, "digest mismatch");
+        OrasClientMock.VerifyNoOtherCalls();
+    }
+
+    [TestMethod]
     public void UpdateAsync_ShouldThrowInvalidOperation_WhenLockDigestMismatch()
     {
         // Arrange
@@ -325,6 +390,46 @@ public class ChartManagerTests : TestBase
         Assert.AreEqual("1.2.3", dependency.Version);
         Assert.AreEqual($"oci://registry-1.docker.io/buildcharts/{_chartName}", dependency.Repository);
         Assert.AreEqual(_manifestDigest, dependency.Digest);
+        OrasClientMock.Verify(x => x.GetManifestDigestAsync(It.IsAny<ChartReference>(), It.IsAny<CancellationToken>()), Times.Once);
+        OrasClientMock.Verify(x => x.Pull(expectedDigestReference, true, _outputDir, expectedCacheRoot, It.IsAny<CancellationToken>()), Times.Once);
+        OrasClientMock.VerifyNoOtherCalls();
+    }
+
+    [TestMethod]
+    public async Task UpdateAsync_ShouldUpdateLockDependency_WhenLockedCacheExists()
+    {
+        // Arrange
+        var expectedCacheRoot = Path.Combine(_outputDir, "cache");
+        var oldDigest = "sha256:oldoldoldoldoldoldoldoldoldoldoldoldoldoldoldoldoldoldoldoldold";
+
+        Fixture.Inject(Options.Create(new ChartOptions
+        {
+            CachePath = expectedCacheRoot,
+        }));
+
+        _chartLock.Dependencies =
+        [
+            new ChartLockDependency
+            {
+                Name = _chartName,
+                Version = "0.0.1",
+                Repository = $"oci://registry-1.docker.io/buildcharts/{_chartName}",
+                Digest = oldDigest,
+            },
+        ];
+
+        ChartReference.TryParse($"registry-1.docker.io/buildcharts/{_chartName}@{oldDigest}", out var oldDigestReference);
+        _cacheArchivePath = Path.Combine(expectedCacheRoot, oldDigestReference.Filename);
+        CreateValidCachedChartArchive(_cacheArchivePath);
+
+        var expectedDigestReference = $"registry-1.docker.io/buildcharts/{_chartName}@{_manifestDigest}";
+
+        // Act
+        await Sut.UpdateAsync(_chartConfig, _chartLock, outputDir: _outputDir, useLockFile: true, updateChartLockFile: true);
+
+        // Assert
+        Assert.AreEqual(1, _chartLock.Dependencies.Count);
+        Assert.AreEqual(_manifestDigest, _chartLock.Dependencies[0].Digest);
         OrasClientMock.Verify(x => x.GetManifestDigestAsync(It.IsAny<ChartReference>(), It.IsAny<CancellationToken>()), Times.Once);
         OrasClientMock.Verify(x => x.Pull(expectedDigestReference, true, _outputDir, expectedCacheRoot, It.IsAny<CancellationToken>()), Times.Once);
         OrasClientMock.VerifyNoOtherCalls();

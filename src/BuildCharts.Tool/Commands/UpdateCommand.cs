@@ -49,7 +49,7 @@ public class UpdateCommand
             var chartLock = new ChartLock(); // Always force a new Chart.Lock file on update.
 
             Console.WriteLine($"Updating {chartConfig.Dependencies.Count} dependencies...");
-            await _chartManager.UpdateAsync(chartConfig, chartLock, ct: ct);
+            await _chartManager.UpdateAsync(chartConfig, chartLock, useLockFile: false, updateChartLockFile: true, ct: ct);
 
             Console.WriteLine("");
             Console.WriteLine("✅ Generated files:");
